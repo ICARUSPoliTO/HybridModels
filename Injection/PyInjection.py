@@ -76,7 +76,6 @@ if __name__ == '__main__':
 
     print(pinj)
     print(mdot)
-    print("Ed è bellissimo.")
 
     #plt.plot(pinj,mdot, label='Dyer')
 
