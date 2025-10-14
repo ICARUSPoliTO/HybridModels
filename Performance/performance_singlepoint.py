@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import Line_losses.linelosses as linelosses
 import Injection.PyInjection as injection
 import CEA_py
+import time
 
 
 def calculate_performance(Ainj, Aport, Ab, eps, ptank, Ttank, pc, CD, a, n, rho_fuel, oxidizer, fuel, pamb=0):
@@ -138,24 +139,28 @@ if __name__ == "__main__":
         "Specific Enthalpy [kj/mol]" : [-1860.6]
         }
 
+    start = time.perf_counter()
     p_inj, mdot_ox, mdot_fuel, mdot, Gox, r, MR, Tc, MW, gamma, cs, CF_vac, CF, Ivac, Is, flag_performance\
         =calculate_performance(Ainj, Aport, Ab, eps, ptank, Ttank, pc, CD, a, n, rho_fuel, oxidizer, fuel, pamb)
+    end = time.perf_counter()
+    runtime = (end - start)*1e-3
 
-    print("p_inj=               "+str(p_inj)             )
-    print("mdot_ox=             "+str(mdot_ox)           )
-    print("mdot_fuel=           "+str(mdot_fuel)         )
-    print("mdot=                "+str(mdot)              )
-    print("Gox=                 "+str(Gox)               )
-    print("r=                   "+str(r)                 )
-    print("MR=                  "+str(MR)                )
-    print("Tc=                  "+str(Tc)                )
-    print("MW=                  "+str(MW)                )
-    print("gamma=               "+str(gamma)             )
-    print("cs=                  "+str(cs)                )
-    print("CF_vac=              "+str(CF_vac)            )
-    print("CF=                  "+str(CF)                )
-    print("Ivac=                "+str(Ivac)              )
-    print("Is=                  "+str(Is)                )
-    print("flag_performance=    "+str(flag_performance)  )
+    print("p_inj=               "+str(p_inj)+"    Pa"      )
+    print("mdot_ox=             "+str(mdot_ox)+"    kg/s"  )
+    print("mdot_fuel=           "+str(mdot_fuel)+"    kg/s")
+    print("mdot=                "+str(mdot)+"    kg/s"     )
+    print("Gox=                 "+str(Gox)+"    kg/s*m^2"  )
+    print("r=                   "+str(r)+"    m/s"         )
+    print("MR=                  "+str(MR)              )
+    print("Tc=                  "+str(Tc)+"    K"          )
+    print("MW=                  "+str(MW)+"    kg/kmol"    )
+    print("gamma=               "+str(gamma)           )
+    print("cs=                  "+str(cs)+"    m/s"        )
+    print("CF_vac=              "+str(CF_vac)          )
+    print("CF=                  "+str(CF)              )
+    print("Ivac=                "+str(Ivac)+"   s"        )
+    print("Is=                  "+str(Is)+"    s"          )
+    print("flag_performance=    "+str(flag_performance))
+    print("runtime=             "+str(runtime)+"    ms"    )
 
 ## end of file
