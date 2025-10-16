@@ -1,8 +1,11 @@
-## Code to write CEA input and run a rocket problem in CEA with a
-# modified output to read and write in the map (if check is passed).
-# Special thanks to Prof. Filippo Masseni for providing the CEA source code and modifying it's output.
-# Due to issues related to the Fortran code, caused by bad reading of the natives input file we will
-# use RocketCEA package. Documentation at: https://rocketcea.readthedocs.io/en/latest/quickstart.html
+"""
+Code to write CEA input and run a rocket problem in CEA with a
+modified output to read and write in the map (if check is passed).
+Special thanks to Prof. Filippo Masseni for providing the CEA source code and modifying it's output.
+Due to issues related to the Fortran code, caused by bad reading of the natives input file we will
+use RocketCEA package. Documentation at: https://rocketcea.readthedocs.io/en/latest/quickstart.html
+Author: Cristian Casalanguida 2025
+"""
 import os
 from rocketcea.cea_obj import CEA_Obj, add_new_fuel, add_new_oxidizer
 

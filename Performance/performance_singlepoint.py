@@ -1,18 +1,20 @@
 """
 This script provides the function to calculate the output performance of the Rocket Engine.
-
+Author: Cristian Casalanguida 2025
 """
 import CoolProp.CoolProp as cp
 import numpy as np
 import matplotlib.pyplot as plt
 import Line_losses.linelosses as linelosses
 import Injection.PyInjection as injection
-import CEA_py
+import Performance.CEA_py as CEA_py
 import time
 
 
-def calculate_performance(Ainj, Aport, Ab, eps, ptank, Ttank, pc, CD, a, n, rho_fuel, oxidizer, fuel, pamb=0):
+def calculate_performance(Ainj, Aport, Ab, eps, ptank, Ttank, pc, CD,
+                          a, n, rho_fuel, oxidizer, fuel, pamb=0):
     """
+    TO-DO: DEAL WITH eps IF IT'S CHOSEN TO ADAPT IT TO AMBIENT PRESSURE
     This function calculates the output performance of the Rocket Engine.
     :param Ainj     : Injection Area                               [m^2]
     :param Aport    : Port Area                                    [m^2]
@@ -101,7 +103,54 @@ def calculate_performance(Ainj, Aport, Ab, eps, ptank, Ttank, pc, CD, a, n, rho_
     Ivac = (cs*CF_vac)/9.81
     Is = (cs*CF)/9.81
 
-    return p_inj, mdot_ox, mdot_fuel, mdot, Gox, r, MR, Tc, MW, gamma, cs, CF_vac, CF, Ivac, Is, flag_performance
+    return (p_inj, mdot_ox, mdot_fuel, mdot, Gox, r, MR, Tc, MW, gamma, cs,
+            CF_vac, CF, Ivac, Is, flag_performance)
+
+
+def pressure_fun(Ainj, Aport, At, Ab, eps, ptank, Ttank, pc, CD, a, n, rho_fuel, oxidizer, fuel, pamb=0):
+    """
+    TO-DO: DEAL WITH eps IF IT'S CHOSEN TO ADAPT IT TO AMBIENT PRESSURE
+    This function calculates the pressure function used for Finite Difference Newton-like method
+    to bring chamber pressure to convergence.
+    The function comes from mass conservation equation between the injector and the nozzle's throat:
+    mdot = m_ox + m_fuel = (pc*At)*f(M=1)/sqrt(R*Tc) = pc*At/cs
+    We will search for the zero of the function:
+    Fpc = mdot*cs/At - pc
+    :param Ainj     : Injection Area                               [m^2]
+    :param Aport    : Port Area                                    [m^2]
+    :param At       : Throat Area                                  [m^2]
+    :param Ab       : Burning Area                                 [m^2]
+    :param eps      : Expantion Ratio
+    :param ptank    : Tank total pressure                          [Pa]
+    :param Ttank    : Tank total temperature                       [K]
+    :param pc       : Chamber total pressure                       [Pa]
+    :param CD       : Discharge coefficient
+    :param a        : regression rate coefficient (r=a*Gox^n)
+    :param n        : regression rate exponent (r=a*Gox^n)
+    :param rho_fuel : Fuel Density                                 [kg/m^3]
+    :param oxidizer : oxidizer properties (Coolprop & CEA)
+        {"OxidizerCP" : "", <--Name for CoolProp
+        "OxidizerCEA" : "", <--Name for CEA
+        "Weight fraction" : "100", # Multi-fluid Ox injector not available
+        "Exploded Formula": "",
+        "Temperature [K]" : "",
+        "Specific Enthalpy [kj/mol]" : ""
+        }
+    :param fuel     : fuel properties
+        {"Fuels" : [],  <--Names for CEA
+        "Weight fraction" : [],
+        "Exploded Formula": [],
+        "Temperature [K]" : [],
+        "Specific Enthalpy [kj/mol]" : []
+        }
+    :param pamb     : Ambient pressure                              [Pa]
+    :return: Fpc, <--pressure function [Pa]
+    """
+    p_inj, mdot_ox, mdot_fuel, mdot, Gox, r, MR, Tc, MW, gamma, cs, CF_vac, CF, Ivac, Is, flag_performance =(
+        calculate_performance(Ainj, Aport, Ab, eps, ptank, Ttank, pc, CD, a, n, rho_fuel, oxidizer, fuel, pamb))
+
+    Fpc = (mdot*cs)/At - pc
+    return Fpc
 
 
 if __name__ == "__main__":
@@ -113,13 +162,16 @@ if __name__ == "__main__":
     nport = 1
     Aport = nport*0.25*np.pi*(Dport**2)
 
+    Dt = Dport*1.5
+    At = 0.25*np.pi*(Dt**2)
+
     Lc = 20e-2 #[m]
     Ab = nport*np.pi*Dport*Lc
 
     eps = 6
     ptank = 55e5 #[Pa]
-    Ttank = 288 #[K]
-    pc = 43e5 #[Pa]
+    Ttank = 300 #[K]
+    pc = 4528000 #[Pa]
     pamb = 1e5 #[Pa]
     CD = 0.8
     a = 0.17e-3
@@ -142,8 +194,11 @@ if __name__ == "__main__":
     start = time.perf_counter()
     p_inj, mdot_ox, mdot_fuel, mdot, Gox, r, MR, Tc, MW, gamma, cs, CF_vac, CF, Ivac, Is, flag_performance\
         =calculate_performance(Ainj, Aport, Ab, eps, ptank, Ttank, pc, CD, a, n, rho_fuel, oxidizer, fuel, pamb)
+
+    Fpc, dum = pressure_fun(Ainj, Aport, At, Ab, eps, ptank, Ttank, pc, CD, a, n, rho_fuel, oxidizer, fuel, pamb)
+
     end = time.perf_counter()
-    runtime = (end - start)*1e-3
+    runtime = (end - start)*1e3
 
     print("p_inj=               "+str(p_inj)+"    Pa"      )
     print("mdot_ox=             "+str(mdot_ox)+"    kg/s"  )
@@ -161,6 +216,7 @@ if __name__ == "__main__":
     print("Ivac=                "+str(Ivac)+"   s"        )
     print("Is=                  "+str(Is)+"    s"          )
     print("flag_performance=    "+str(flag_performance))
+    print("Fpc=                 "+str(Fpc))
     print("runtime=             "+str(runtime)+"    ms"    )
 
 ## end of file

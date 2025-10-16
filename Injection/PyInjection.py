@@ -41,9 +41,12 @@ class Injector(object):
 
             mdot_HEM = cD * d2 * np.sqrt(2 * abs(h1 - h2)) #[kg/s*m^2]
 
-            k = np.sqrt((p1 - p2) / (pV - p2))
+            if pV > p2:
+                k = np.sqrt((p1 - p2) / (pV - p2))
 
-            mdot = (k * mdot_SPI / (k + 1) + mdot_HEM / (k + 1)) #[kg/s*m^2]
+                mdot = (k * mdot_SPI / (k + 1) + mdot_HEM / (k + 1)) #[kg/s*m^2]
+            else: # N2O is always over vapor pressure
+                mdot = mdot_SPI #[kg/s*m^2]
 
             self.mdot = mdot
             # self.mdot_SPI = mdot_SPI * self.A
@@ -61,15 +64,15 @@ if __name__ == '__main__':
     ox = Injector('NitrousOxide')
 
     ox.injection_area(0.0127,1)
-    pinj= np.arange(70,71,1) #[bar]
+    pinj= np.arange(55,56,1) #[bar]
 
-    pc = 1 #[bar]
+    pc = 49 #[bar]
     mdot= np.zeros(np.shape(pinj))
     mdot_SPI= np.zeros(np.shape(pinj))
     mdot_HEM= np.zeros(np.shape(pinj))
 
     for i in range(np.shape(pinj)[0]):
-        ox.massflow( pinj[i]*10**5, pc*10**5, 308, 1)
+        ox.massflow( pinj[i]*10**5, pc*10**5, 288, 1)
         mdot[i] = ox.mdot * ox.A
 
     mfuel = 0.116*(mdot/(0.25*np.pi*(13.4E-3)**2))**0.331
