@@ -361,11 +361,11 @@ if __name__=="__main__":
      CF_vac_array, CF_array, Ivac_array, Is_array, flag_array) = (
         full_range_simulation(Dport_Dt_range, Dinj_Dt_range, Lc_Dt_range, eps, ptank, Ttank,
                           CD, a, n, rho_fuel, oxidizer, fuel, pamb))
-    """
+    #"""
     end = time.process_time()
     runtime = (end - start)
 
-    #"""
+    """
     print("pc_start=    "+str(pc_start)+"Pa")
     print("Fpc_start=   "+str(Fpc_start)+"Pa")
     print("pc=          "+str(pc)+"Pa")
