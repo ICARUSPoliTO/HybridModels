@@ -8,13 +8,13 @@ import Performance.performance_singlepoint as perfs
 
 
 def starting_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank, CD, a, n, rho_fuel, oxidizer, fuel,
-                                  pamb=0):
+                                  pamb=0.0, gamma0=1.3):
     """
     This function returns the best value to start the iteration.
     :param Ainj     : Injection Area                               [m^2]
     :param Aport    : Port Area                                    [m^2]
     :param Ab       : Burning Area                                 [m^2]
-    :param eps      : Expantion Ratio
+    :param eps      : Expantion Ratio input
     :param ptank    : Tank total pressure                          [Pa]
     :param Ttank    : Tank total temperature                       [K]
     :param CD       : Discharge coefficient
@@ -37,6 +37,7 @@ def starting_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank, CD, a, n, rho_fuel
         "Specific Enthalpy [kj/mol]" : []
         }
     :param pamb     : Ambient pressure                              [Pa]
+    :param gamma0   : Guess for specific heat ratio
     :return: Chamber pressure to start
     """
 
@@ -50,9 +51,14 @@ def starting_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank, CD, a, n, rho_fuel
     for i, pc_try in enumerate(pc_range):
         try:
             Fpcs[i] = perfs.pressure_fun(Ainj, Aport, At, Ab, eps, ptank, Ttank, pc_try,
-                                         CD, a, n, rho_fuel, oxidizer, fuel, pamb)
+                                         CD, a, n, rho_fuel, oxidizer, fuel, pamb, gamma0)
         except:
-            Fpcs[i] = np.max(Fpcs)*100
+            Fpcs[i] = 1e8
+
+    # remove bad solutions
+    mask = Fpcs != 1e8
+    Fpcs = Fpcs[mask]
+    pc_range = pc_range[mask]
 
     i_min = np.argmin(np.abs(Fpcs)) # absolute value!!!!!!!
     pc_best = pc_range[i_min]
@@ -65,9 +71,8 @@ def starting_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank, CD, a, n, rho_fuel
 
 
 def get_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank, CD, a, n, rho_fuel, oxidizer, fuel,
-                                  pamb=0):
+                                  pamb=0.0, gamma0=1.3):
     """
-    TO-DO: DEAL WITH eps IF IT'S CHOSEN TO ADAPT IT TO AMBIENT PRESSURE
     This function iterates with a Newton-like method to find the zero of the chamber pressure function.
     F(pc_new) - F(pc_old) = (dF/dpc)/k_Newton * (pc_new - pc_old)
     with F(pc_new) = 0
@@ -103,10 +108,11 @@ def get_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank, CD, a, n, rho_fuel, oxi
         "Specific Enthalpy [kj/mol]" : []
         }
     :param pamb: Ambient pressure                            [Pa]
-    :return: pc, <--Chamber pressure                         [Pa]
-            Fpc, <--Chamber pressure function                [Pa]
-            n_iter, <-- number of iteration at stop
-            maxit <-- maximum number of iterations
+    :param gamma0   : Guess for specific heat ratio
+    :return: pc (Chamber pressure)                           [Pa],
+            Fpc (Chamber pressure function)                  [Pa],
+            n_iter (number of iteration at stop),
+            maxit (maximum number of iterations)
     """
     k_Newton = 1
     n_iter = 0
@@ -116,17 +122,23 @@ def get_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank, CD, a, n, rho_fuel, oxi
     # Probably every purpose if you're not dealing with void chambers.
 
     pc = starting_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank, CD, a, n,
-                                 rho_fuel, oxidizer, fuel, pamb)
+                                 rho_fuel, oxidizer, fuel, pamb, gamma0)
     if pc == 0:
         n_iter = maxit + 1
         Fpc = 0
     else:
+        p_inj, mdot_ox, mdot_fuel, mdot, Gox, r, MR, Tc, MW, gamma, eps_out, cs, CF_vac, CF, Ivac, Is, flag_performance\
+            = perfs.calculate_performance(Ainj, Aport, Ab, eps, ptank, Ttank, pc, CD,
+                                          a, n, rho_fuel, oxidizer, fuel, pamb, gamma0)
+        gamma0 = gamma
+
         Fpc = perfs.pressure_fun(Ainj, Aport, At, Ab, eps, ptank, Ttank, pc,
-                                 CD, a, n, rho_fuel, oxidizer, fuel, pamb)
+                                 CD, a, n, rho_fuel, oxidizer, fuel, pamb, gamma0)
+
 
     while (np.abs(Fpc) > 1e-1) & (n_iter < maxit):
         Fdpc = perfs.pressure_fun(Ainj, Aport, At, Ab, eps, ptank, Ttank, (pc+dpc),
-                             CD, a, n, rho_fuel, oxidizer, fuel, pamb)
+                             CD, a, n, rho_fuel, oxidizer, fuel, pamb, gamma0)
 
         dFpc = (Fdpc - Fpc)/dpc
 
@@ -142,17 +154,21 @@ def get_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank, CD, a, n, rho_fuel, oxi
             pc = 0.75 * ptank
             k_Newton = k_Newton - 0.05
 
+        p_inj, mdot_ox, mdot_fuel, mdot, Gox, r, MR, Tc, MW, gamma, eps_out, cs, CF_vac, CF, Ivac, Is, flag_performance \
+            = perfs.calculate_performance(Ainj, Aport, Ab, eps, ptank, Ttank, pc, CD,
+                                          a, n, rho_fuel, oxidizer, fuel, pamb, gamma0)
+        gamma0 = gamma
+
         Fpc = perfs.pressure_fun(Ainj, Aport, At, Ab, eps, ptank, Ttank, pc,
-                                 CD, a, n, rho_fuel, oxidizer, fuel, pamb)
+                                 CD, a, n, rho_fuel, oxidizer, fuel, pamb, gamma0)
         n_iter += 1
 
-    return pc, Fpc, n_iter, maxit
+    return pc, Fpc, n_iter, maxit, gamma0
 
 
 def full_range_simulation(Dport_Dt_range, Dinj_Dt_range, Lc_Dt_range, eps, ptank, Ttank,
-                          CD, a, n, rho_fuel, oxidizer, fuel, pamb=0):
+                          CD, a, n, rho_fuel, oxidizer, fuel, pamb=0.0, gamma0=1.3):
     """
-    TO-DO: DEAL WITH eps IF IT'S CHOSEN TO ADAPT IT TO AMBIENT PRESSURE
     This functions runs the performances and finds the pressure for every configuration of the parameters.
     :param Dport_Dt_range: First adimensional parameter
     :param Dinj_Dt_range: Second adimensional parameter
@@ -180,25 +196,25 @@ def full_range_simulation(Dport_Dt_range, Dinj_Dt_range, Lc_Dt_range, eps, ptank
         "Specific Enthalpy [kj/mol]" : []
         }
     :param pamb: Ambient pressure [Pa]
-    :return: pc_array, <--Chamber pressure array [Pa]
-            Fpc_array, <--Chamber pressure function array [Pa]
-            p_inj_array, <--Injection pressure array [Pa]
-            mdot_ox_array, <--Oxidizer mass flow corrected with squared throad diameter array [kg/(s*m**2)]
-            mdot_fuel_array, <--Fuel mass flow corrected with squared throad diameter array [kg/(s*m**2)]
-            mdot_array, <-- Total mass flow corrected with squared throad diameter array [kg/(s*m**2)]
-            Gox_array, <-- Oxidizer mass flux array [kg/s*m**2]
-            r_array, <-- Regression rate array [m/s]
-            MR_array, <--Mixture Ratio array
-            eps_array, <--Expansion ratio array
-            Tc_array, <--Chamber Temperature array [K]
-            MW_array, <--Molecular weight array [kg/kmol]
-            gamma_array,<--Gamma array
-            cs_array, <--Characteristic velocity array [m/s]
-            CF_vac_array, <--Thrust coefficient in vacuum array
-            CF_array, <--Thrust coefficient array
-            Ivac_array, <--Specific impulse in vacuum array [s]
-            Is_array, <--Specific impulse array [s]
-            flag_array <--0=converged, 1=pressure diverged, -1=CEA diverged, 2=both diverged, 10=no pressure solution exists
+    :return: pc_array (Chamber pressure array) [Pa],
+            Fpc_array (Chamber pressure function array) [Pa],
+            p_inj_array (Injection pressure array) [Pa],
+            mdot_ox_array (Oxidizer mass flow corrected with squared throad diameter array) [kg/(s*m**2)],
+            mdot_fuel_array (Fuel mass flow corrected with squared throad diameter array) [kg/(s*m**2)],
+            mdot_array (Total mass flow corrected with squared throad diameter array) [kg/(s*m**2)],
+            Gox_array (Oxidizer mass flux array [kg/s*m**2],
+            r_array (Regression rate array) [m/s],
+            MR_array (Mixture Ratio array),
+            eps_array (Expansion ratio array),
+            Tc_array (Chamber Temperature array) [K],
+            MW_array (Molecular weight array) [kg/kmol],
+            gamma_array (Gamma array),
+            cs_array (Characteristic velocity array) [m/s],
+            CF_vac_array (Thrust coefficient in vacuum array),
+            CF_array (Thrust coefficient array),
+            Ivac_array (Specific impulse in vacuum array), [s]
+            Is_array (Specific impulse array), [s]
+            flag_array (0=converged, 1=pressure diverged, -1=CEA diverged, 2=both diverged, 10=no pressure solution exists)
     """
 
     Dport_length = np.size(Dport_Dt_range)
@@ -240,14 +256,14 @@ def full_range_simulation(Dport_Dt_range, Dinj_Dt_range, Lc_Dt_range, eps, ptank
                 Ainj = 0.25*np.pi*(Dinj**2)
                 At = 0.25*np.pi*(Dt**2)
                 Ab = np.pi*Dport*Lc
-                pc, Fpc, n_iter, maxit = get_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank,
-                                                      CD, a, n, rho_fuel, oxidizer, fuel, pamb)
+                pc, Fpc, n_iter, maxit, gamma0 = get_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank,
+                                                      CD, a, n, rho_fuel, oxidizer, fuel, pamb, gamma0)
 
                 if pc != 0:
-                    (p_inj, mdot_ox, mdot_fuel, mdot, Gox, r, MR, Tc, MW, gamma, cs,
+                    (p_inj, mdot_ox, mdot_fuel, mdot, Gox, r, MR, Tc, MW, gamma, eps_out, cs,
                      CF_vac, CF, Ivac, Is, flag_performance) = \
                         (perfs.calculate_performance(Ainj, Aport, Ab, eps, ptank, Ttank, pc, CD, a, n, rho_fuel,
-                                                     oxidizer, fuel, pamb))
+                                                     oxidizer, fuel, pamb, gamma0))
 
                     # Write outputs
                     pc_array[ind_Dport, ind_Dinj, ind_Lc]           = pc # [Pa]
@@ -261,7 +277,7 @@ def full_range_simulation(Dport_Dt_range, Dinj_Dt_range, Lc_Dt_range, eps, ptank
                     r_array[ind_Dport, ind_Dinj, ind_Lc]            = r # [m/s]
 
                     MR_array[ind_Dport, ind_Dinj, ind_Lc]           = MR
-                    eps_array[ind_Dport, ind_Dinj, ind_Lc]          = eps # CHANGE IT AFTER ADDING THE ADAPTING EXPANTION RATIO
+                    eps_array[ind_Dport, ind_Dinj, ind_Lc]          = eps_out
 
                     Tc_array[ind_Dport, ind_Dinj, ind_Lc]           = Tc # [K]
                     MW_array[ind_Dport, ind_Dinj, ind_Lc]           = MW # [kg/kmol]
@@ -297,7 +313,7 @@ def full_range_simulation(Dport_Dt_range, Dinj_Dt_range, Lc_Dt_range, eps, ptank
 
 if __name__=="__main__":
     """
-    Dinj = 0.55  # [m]
+    Dinj = 0.3  # [m]
     ninj = 1
     Ainj = ninj * 0.25 * np.pi * (Dinj ** 2)
 
@@ -308,19 +324,20 @@ if __name__=="__main__":
     Dt = 1
     At = 0.25 * np.pi * (Dt ** 2)
 
-    Lc = 9  # [m]
+    Lc = 3  # [m]
     Ab = nport * np.pi * Dport * Lc
     """
 
-    Dport_Dt_range = np.arange(1,3,0.5)
-    Dinj_Dt_range = np.arange(0.2,0.6,0.05)
+    Dport_Dt_range = np.arange(1,5,0.5)
+    Dinj_Dt_range = np.arange(0.2,1,0.05)
     Lc_Dt_range = np.arange(3,10,1)
     #"""
 
-    eps = 6
+    eps = "adapt"
     ptank = 55e5  # [Pa]
     Ttank = 288  # [K]
     pamb = 1e5  # [Pa]
+    gamma0 = 1.3
     CD = 0.8
     a = 0.17e-3
     n = 0.5
@@ -343,18 +360,21 @@ if __name__=="__main__":
 
     """
     pc_start = starting_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank, CD, a, n,
-                                 rho_fuel, oxidizer, fuel, pamb)
+                                 rho_fuel, oxidizer, fuel, pamb, gamma0)
+
     if pc_start != 0:
         Fpc_start = perfs.pressure_fun(Ainj, Aport, At, Ab, eps, ptank, Ttank, pc_start,
-                                             CD, a, n, rho_fuel, oxidizer, fuel, pamb)
-        pc, Fpc, n_end, maxit = get_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank, CD, a, n,
-                                     rho_fuel, oxidizer, fuel, pamb)
+                                             CD, a, n, rho_fuel, oxidizer, fuel, pamb, gamma0)
+        pc, Fpc, n_end, maxit, gamma_out = get_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank, CD, a, n,
+                                     rho_fuel, oxidizer, fuel, pamb, gamma0)
     else:
         Fpc_start = 0
         pc = 0
         Fpc = 0
         n_end = 0
         maxit = 0
+        gamma_out = 100
+
     """
     (pc_array, Fpc_array, p_inj_array, mdot_ox_array, mdot_fuel_array, mdot_array, Gox_array,
      r_array, MR_array, eps_array, Tc_array, MW_array, gamma_array, cs_array,
@@ -370,8 +390,12 @@ if __name__=="__main__":
     print("Fpc_start=   "+str(Fpc_start)+"Pa")
     print("pc=          "+str(pc)+"Pa")
     print("Fpc=         "+str(Fpc)+"Pa")
+    print("gamma=       "+str(gamma_out))
     print("n_end=       "+str(n_end)+"/"+str(maxit))
     """
+    print("eps=")
+    print(eps_array)
+    print("flag=")
     print(flag_array)
     #"""
     print("runtime=     "+str(runtime)+"s")

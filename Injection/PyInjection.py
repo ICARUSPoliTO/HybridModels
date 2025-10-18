@@ -41,11 +41,24 @@ class Injector(object):
 
             mdot_HEM = cD * d2 * np.sqrt(2 * abs(h1 - h2)) #[kg/s*m^2]
 
-            if pV > p2:
+            if pV > p1: # N2O is always gas
+                gamma = (cp.PropsSI('CPMASS', 'P', p1, 'T', T, self.fluid)
+                         /cp.PropsSI('CVMASS', 'P', p1, 'T', T, self.fluid))
+                R = 8314/(cp.PropsSI('MOLARMASS', 'P', p1, 'T', T, self.fluid)/1e-3)
+
+                mdot = p1/np.sqrt(R*T)
+                gammone = np.sqrt(gamma * (2 / (gamma + 1)) ** ((gamma + 1) / (gamma - 1)))
+                pe_pc_crit = (2 / (gamma + 1)) ** (gamma / (gamma - 1))
+                if (p2 / p1) < pe_pc_crit: # Is critical?
+                    mdot = mdot * gammone
+                else:
+                    mdot= mdot * np.sqrt((2 * gamma) * ((p2 / p1) ** (2 / gamma) - (p2 / p1) ** ((gamma + 1) / gamma)) / (gamma - 1))
+
+            elif pV > p2: # N2O exits as a mixture
                 k = np.sqrt((p1 - p2) / (pV - p2))
 
                 mdot = (k * mdot_SPI / (k + 1) + mdot_HEM / (k + 1)) #[kg/s*m^2]
-            else: # N2O is always over vapor pressure
+            else: # N2O is always liquid
                 mdot = mdot_SPI #[kg/s*m^2]
 
             self.mdot = mdot
@@ -64,16 +77,16 @@ if __name__ == '__main__':
     ox = Injector('NitrousOxide')
 
     ox.injection_area(0.0127,1)
-    pinj= np.arange(55,56,1) #[bar]
-
-    pc = 49 #[bar]
+    pinj= 2e5 #[Pa]
+    Ttank = 288  # [K]
+    pc = 1e5 #[Pa]
     mdot= np.zeros(np.shape(pinj))
     mdot_SPI= np.zeros(np.shape(pinj))
     mdot_HEM= np.zeros(np.shape(pinj))
 
-    for i in range(np.shape(pinj)[0]):
-        ox.massflow( pinj[i]*10**5, pc*10**5, 288, 1)
-        mdot[i] = ox.mdot * ox.A
+    print('M='+str(cp.PropsSI('MOLARMASS', ox.fluid)*1e3))
+    ox.massflow(pinj, pc, Ttank, 1)
+    mdot = ox.mdot * ox.A
 
     mfuel = 0.116*(mdot/(0.25*np.pi*(13.4E-3)**2))**0.331
 
