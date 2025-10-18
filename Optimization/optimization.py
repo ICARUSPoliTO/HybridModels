@@ -328,9 +328,9 @@ if __name__=="__main__":
     Ab = nport * np.pi * Dport * Lc
     """
 
-    Dport_Dt_range = np.arange(1,5,0.5)
-    Dinj_Dt_range = np.arange(0.2,1,0.05)
-    Lc_Dt_range = np.arange(3,10,1)
+    Dport_Dt_range = np.arange(3.5,5,0.5)
+    Dinj_Dt_range = np.arange(0.8,1,0.05)
+    Lc_Dt_range = np.arange(8,10,1)
     #"""
 
     eps = "adapt"
