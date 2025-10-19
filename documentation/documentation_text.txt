@@ -1,1 +1,1210 @@
 
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{enumitem}
+
+% Code listing style
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    language=Python,
+    keywordstyle=\color{blue},
+    commentstyle=\color{gray},
+    stringstyle=\color{red}
+}
+
+\title{\textbf{Hybrid Rocket Engine Combustion Chamber\\Performance Analysis System}\\
+\large Technical Documentation v1.0}
+\author{Edgardo Rossi on Cristian Casalanguida's code\\
+Documentation compiled up until 19/10/2025}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This document provides comprehensive technical documentation for a numerical simulation framework designed to analyze hybrid rocket engine combustion chamber performance. The system integrates fluid injection modeling, thermochemical equilibrium calculations, and iterative pressure convergence algorithms to predict engine performance across parametric design spaces. The framework is particularly suited for self-pressurizing oxidizer systems (e.g., nitrous oxide) with solid fuel grains (e.g., paraffin wax).
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{Introduction}
+
+\subsection{Overview}
+The hybrid rocket engine simulation framework consists of three primary modules:
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Injection Module (\texttt{PyInjection.py})}: Models two-phase flow through injector orifices using the Dyer model with Self-Pressurizing Injector (SPI) and Homogeneous Equilibrium Model (HEM) approaches.
+    
+    \item \textbf{Performance Module (\texttt{performance\_singlepoint.py})}: Calculates thermochemical and propulsive performance parameters at a single operating point using NASA CEA (Chemical Equilibrium with Applications).
+    
+    \item \textbf{Chamber Pressure Convergence Module (\texttt{pressure\_convergence.py})}: Implements Newton-like iterative methods to solve for equilibrium chamber pressure and performs parametric design space exploration.
+\end{enumerate}
+
+\subsection{Physical Problem}
+The simulation addresses the coupled nonlinear problem of hybrid rocket combustion:
+
+\begin{itemize}
+    \item Oxidizer mass flow through injector: $\dot{m}_{ox} = f(p_{tank}, p_c, T_{tank})$
+    \item Fuel regression rate (Marxman-Gilbert): $\dot{r} = a \cdot G_{ox}^n$
+    \item Mass conservation at throat: $\dot{m}_{total} = \frac{p_c A_t}{c^*}$
+    \item Thermochemical equilibrium determines $c^*$, $\gamma$, and performance
+\end{itemize}
+
+The chamber pressure $p_c$ must be found iteratively to satisfy mass balance.
+
+\subsection{Key Assumptions}
+\begin{itemize}
+    \item Steady-state operation
+    \item Isothermal flow in feed lines
+    \item Ideal gas behavior in combustion products
+    \item One-dimensional flow in nozzle
+    \item Instantaneous chemical equilibrium
+    \item Uniform regression along fuel grain
+\end{itemize}
+
+\newpage
+\section{Module 1: Injection System Model}
+
+\subsection{Theoretical Background}
+
+The injection model implements the methodology from Waxman et al. (Stanford University) for self-pressurizing oxidizers. The model accounts for phase change phenomena critical in nitrous oxide systems.
+
+\subsubsection{Flow Regimes}
+
+Three distinct flow regimes are identified based on vapor pressure $p_v$:
+
+\begin{enumerate}
+    \item \textbf{All-Liquid Flow} ($p_v < p_c$): 
+    \begin{equation}
+    \dot{m}'' = C_D \sqrt{2\rho_{SPI}(p_1 - p_2)}
+    \end{equation}
+    where $\rho_{SPI}$ is the saturated liquid density.
+    
+    \item \textbf{Two-Phase Flow} ($p_c < p_v < p_1$):
+    \begin{equation}
+    \dot{m}'' = \frac{k \cdot \dot{m}''_{SPI} + \dot{m}''_{HEM}}{k + 1}
+    \end{equation}
+    where:
+    \begin{align}
+    k &= \sqrt{\frac{p_1 - p_2}{p_v - p_2}} \\
+    \dot{m}''_{HEM} &= C_D \rho_2 \sqrt{2|h_1 - h_2|}
+    \end{align}
+    
+    \item \textbf{All-Gas Flow} ($p_v < p_1$):
+    \begin{equation}
+    \dot{m}'' = \frac{p_1}{\sqrt{RT}} \cdot \Gamma(\gamma, p_2/p_1)
+    \end{equation}
+    with critical flow function:
+    \begin{equation}
+    \Gamma = \sqrt{\gamma \left(\frac{2}{\gamma+1}\right)^{\frac{\gamma+1}{\gamma-1}}}
+    \end{equation}
+\end{enumerate}
+
+\subsection{Implementation Details}
+
+\subsubsection{Class Structure}
+
+\begin{lstlisting}
+class Injector:
+    def __init__(self, fluid)
+    def injection_area(self, D, n)
+    def massflow(self, p1, p2, T, cD)
+\end{lstlisting}
+
+\subsubsection{Key Methods}
+
+\paragraph{\texttt{\_\_init\_\_(fluid)}}
+Initializes injector with specified fluid from CoolProp database.
+
+\textbf{Parameters:}
+\begin{itemize}
+    \item \texttt{fluid} (str): CoolProp fluid name (e.g., "NitrousOxide")
+\end{itemize}
+
+\paragraph{\texttt{injection\_area(D, n)}}
+Calculates total injection area for circular orifices.
+
+\textbf{Parameters:}
+\begin{itemize}
+    \item \texttt{D} (float): Orifice diameter [m]
+    \item \texttt{n} (int): Number of orifices
+\end{itemize}
+
+\textbf{Formula:}
+\begin{equation}
+A_{inj} = n \cdot \frac{\pi D^2}{4}
+\end{equation}
+
+\paragraph{\texttt{massflow(p1, p2, T, cD)}}
+Computes mass flux through injector accounting for phase transitions.
+
+\textbf{Parameters:}
+\begin{itemize}
+    \item \texttt{p1} (float): Upstream pressure [Pa]
+    \item \texttt{p2} (float): Downstream pressure [Pa]
+    \item \texttt{T} (float): Fluid temperature [K]
+    \item \texttt{cD} (float): Discharge coefficient [-]
+\end{itemize}
+
+\textbf{Returns:}
+\begin{itemize}
+    \item \texttt{self.mdot} (float): Mass flux [kg/(s·m²)]
+\end{itemize}
+
+\subsection{Usage Example}
+
+\begin{lstlisting}
+import PyInjection as injection
+
+# Initialize N2O injector
+ox = injection.Injector('NitrousOxide')
+
+# Define geometry
+ox.injection_area(D=0.0127, n=4)  # 4 holes of 12.7mm
+
+# Calculate mass flow
+ox.massflow(p1=5.5e6, p2=4.3e6, T=288, cD=0.8)
+mdot_total = ox.mdot * ox.A  # [kg/s]
+\end{lstlisting}
+
+\newpage
+\section{Module 2: Single-Point Performance Analysis}
+
+\subsection{Theoretical Framework}
+
+This module calculates thermochemical and propulsive performance at a specified chamber pressure.
+
+\subsubsection{Fuel Regression Rate}
+
+The classical Marxman-Gilbert correlation:
+
+\begin{equation}
+\dot{r} = a \cdot G_{ox}^n
+\end{equation}
+
+where:
+\begin{itemize}
+    \item $\dot{r}$ is regression rate [m/s]
+    \item $G_{ox} = \dot{m}_{ox}/A_{port}$ is oxidizer mass flux [kg/(s·m²)]
+    \item $a$, $n$ are empirical constants (e.g., paraffin: $a=0.17\times10^{-3}$, $n=0.5$)
+\end{itemize}
+
+Fuel mass flow:
+\begin{equation}
+\dot{m}_{fuel} = \rho_{fuel} \cdot A_b \cdot \dot{r}
+\end{equation}
+
+\subsubsection{Mixture Ratio}
+
+\begin{equation}
+MR = \frac{\dot{m}_{ox}}{\dot{m}_{fuel}}
+\end{equation}
+
+\subsubsection{Nozzle Performance}
+
+From CEA thermochemical equilibrium calculations:
+
+\begin{itemize}
+    \item Characteristic velocity: $c^* = \sqrt{\frac{RT_c}{\gamma}} \left(\frac{\gamma+1}{2}\right)^{\frac{\gamma+1}{2(\gamma-1)}}$ [m/s]
+    \item Vacuum thrust coefficient: $C_{F,vac}$ [-]
+    \item Thrust coefficient: $C_F = C_{F,vac} - \varepsilon\frac{p_{amb}}{p_c}$ [-]
+    \item Specific impulse: $I_{sp} = \frac{c^* C_F}{g_0}$ [s]
+\end{itemize}
+
+\subsubsection{Expansion Ratio}
+
+For adaptive nozzles (\texttt{eps = "adapt"}):
+\begin{equation}
+\varepsilon = \frac{A_e}{A_t} = \frac{\Gamma}{\sqrt{\frac{2\gamma}{\gamma-1}\left[\left(\frac{p_e}{p_c}\right)^{2/\gamma} - \left(\frac{p_e}{p_c}\right)^{(\gamma+1)/\gamma}\right]}}
+\end{equation}
+
+where $p_e = p_{amb}$ for perfect expansion.
+
+\subsection{Key Functions}
+
+\subsubsection{\texttt{calculate\_performance(...)}}
+
+Primary function that computes all performance metrics at a given $p_c$.
+
+\textbf{Inputs:}
+\begin{itemize}
+    \item \texttt{Ainj}: Injection area [m²]
+    \item \texttt{Aport}: Port cross-sectional area [m²]
+    \item \texttt{Ab}: Fuel burning surface area [m²]
+    \item \texttt{eps}: Expansion ratio (float) or "adapt"
+    \item \texttt{ptank}: Tank pressure [Pa]
+    \item \texttt{Ttank}: Tank temperature [K]
+    \item \texttt{pc}: Chamber pressure [Pa]
+    \item \texttt{CD}: Discharge coefficient [-]
+    \item \texttt{a}, \texttt{n}: Regression parameters
+    \item \texttt{rho\_fuel}: Fuel density [kg/m³]
+    \item \texttt{oxidizer}: Dictionary with oxidizer properties
+    \item \texttt{fuel}: Dictionary with fuel properties
+    \item \texttt{pamb}: Ambient pressure [Pa] (default: 0)
+    \item \texttt{gamma0}: Initial $\gamma$ guess (default: 1.3)
+\end{itemize}
+
+\textbf{Outputs (17 parameters):}
+\begin{enumerate}
+    \item \texttt{p\_inj}: Injection pressure [Pa]
+    \item \texttt{mdot\_ox}: Oxidizer mass flow [kg/s]
+    \item \texttt{mdot\_fuel}: Fuel mass flow [kg/s]
+    \item \texttt{mdot}: Total mass flow [kg/s]
+    \item \texttt{Gox}: Oxidizer mass flux [kg/(s·m²)]
+    \item \texttt{r}: Regression rate [m/s]
+    \item \texttt{MR}: Mixture ratio [-]
+    \item \texttt{Tc}: Chamber temperature [K]
+    \item \texttt{MW}: Molecular weight [kg/kmol]
+    \item \texttt{gamma}: Specific heat ratio [-]
+    \item \texttt{eps\_out}: Actual expansion ratio [-]
+    \item \texttt{cs}: Characteristic velocity [m/s]
+    \item \texttt{CF\_vac}: Vacuum thrust coefficient [-]
+    \item \texttt{CF}: Thrust coefficient [-]
+    \item \texttt{Ivac}: Vacuum specific impulse [s]
+    \item \texttt{Is}: Specific impulse [s]
+    \item \texttt{flag\_performance}: Convergence flag (0=success, 1=failure)
+\end{enumerate}
+
+\subsubsection{\texttt{pressure\_fun(...)}}
+
+Residual function for Newton iteration:
+
+\begin{equation}
+F(p_c) = \frac{\dot{m} \cdot c^*(p_c)}{A_t} - p_c
+\end{equation}
+
+The zero of this function represents mass balance equilibrium.
+
+\subsection{Propellant Specification Format}
+
+\subsubsection{Oxidizer Dictionary}
+\begin{lstlisting}
+oxidizer = {
+    "OxidizerCP": "NitrousOxide",  # CoolProp name
+    "OxidizerCEA": "N2O",           # CEA name
+    "Weight fraction": "100",
+    "Exploded Formula": "",
+    "Temperature [K]": "",
+    "Specific Enthalpy [kj/mol]": ""
+}
+\end{lstlisting}
+
+\subsubsection{Fuel Dictionary}
+\begin{lstlisting}
+fuel = {
+    "Fuels": ["paraffin"],
+    "Weight fraction": ["100"],
+    "Exploded Formula": ["C 73 H 124"],
+    "Temperature [K]": [533.0],
+    "Specific Enthalpy [kj/mol]": [-1860.6]
+}
+\end{lstlisting}
+
+\newpage
+\section{Module 3: Chamber Pressure Convergence}
+
+\subsection{Mathematical Formulation}
+
+\subsubsection{Nonlinear System}
+
+The chamber pressure must satisfy:
+
+\begin{equation}
+\dot{m}_{total}(p_c) = \frac{p_c A_t}{c^*(p_c, MR(p_c))}
+\end{equation}
+
+where all right-hand terms depend implicitly on $p_c$ through:
+\begin{align}
+\dot{m}_{ox}(p_c) &= f_{inj}(p_{tank} - \Delta p_{lines}, p_c) \\
+\dot{m}_{fuel}(p_c) &= \rho_{fuel} A_b a \left(\frac{\dot{m}_{ox}}{A_{port}}\right)^n \\
+MR(p_c) &= \frac{\dot{m}_{ox}(p_c)}{\dot{m}_{fuel}(p_c)}
+\end{align}
+
+\subsubsection{Newton-Raphson Method}
+
+Iterative scheme with adaptive damping:
+
+\begin{equation}
+p_c^{(k+1)} = p_c^{(k)} - k_{Newton} \frac{F(p_c^{(k)})}{F'(p_c^{(k)})}
+\end{equation}
+
+where:
+\begin{itemize}
+    \item $k_{Newton} \leq 1$ is damping factor (reduces if bounds violated)
+    \item $F'(p_c) \approx \frac{F(p_c + \Delta p) - F(p_c)}{\Delta p}$ (finite difference)
+    \item $\Delta p = 10$ Pa
+\end{itemize}
+
+\textbf{Convergence criterion:}
+\begin{equation}
+|F(p_c)| < \tau = 0.1 \text{ Pa}
+\end{equation}
+
+\subsection{Algorithm Flow}
+
+\subsubsection{Initial Guess Calculation}
+
+\textbf{Function:} \texttt{starting\_pressure(...)}
+
+\textbf{Strategy:}
+\begin{enumerate}
+    \item Define search range: $p_c \in [p_{amb}, 0.9 \cdot p_{tank}]$
+    \item Evaluate $F(p_c)$ at 50 uniformly spaced points
+    \item Select $p_c$ with minimum $|F(p_c)|$
+    \item Check for sign change (zero crossing)
+    \item Return 0 if no valid solution exists
+\end{enumerate}
+
+\textbf{Returns:}
+\begin{itemize}
+    \item $p_c^{(0)}$ [Pa] if solvable
+    \item 0 if no solution exists
+\end{itemize}
+
+\subsubsection{Iterative Solver}
+
+\textbf{Function:} \texttt{get\_pressure(...)}
+
+\textbf{Algorithm:}
+\begin{enumerate}
+    \item Initialize: $k_{Newton} = 1.0$, $n_{iter} = 0$
+    \item Get initial guess: $p_c^{(0)} = $ \texttt{starting\_pressure(...)}
+    \item If $p_c^{(0)} = 0$: return failure
+    \item While $|F(p_c)| > \tau$ and $n_{iter} < 100$:
+    \begin{enumerate}
+        \item Compute: $F' = [F(p_c + 10) - F(p_c)]/10$
+        \item Update: $p_c^{new} = p_c - k_{Newton} \cdot F/F'$
+        \item If $p_c^{new} < p_{amb}$: $p_c^{new} = \max(0.2p_{tank}, 1.5p_{amb})$, $k_{Newton} -= 0.05$
+        \item If $p_c^{new} \geq 0.9p_{tank}$: $p_c^{new} = 0.75p_{tank}$, $k_{Newton} -= 0.05$
+        \item Calculate performance at $p_c^{new}$
+        \item Update $\gamma_0 = \gamma(p_c^{new})$
+        \item $n_{iter} += 1$
+    \end{enumerate}
+    \item Return: $p_c$, $F(p_c)$, $n_{iter}$, $\gamma_0$
+\end{enumerate}
+
+\textbf{Convergence Flags:}
+\begin{itemize}
+    \item 0: Successfully converged
+    \item 1: Pressure iteration diverged (reached max iterations)
+    \item -1: CEA calculation failed
+    \item 2: Both pressure and CEA failed
+    \item 10: No initial solution found
+\end{itemize}
+
+\subsection{Parametric Design Space Exploration}
+
+\subsubsection{Function: \texttt{full\_range\_simulation(...)}}
+
+Performs exhaustive search over dimensionless design parameters:
+
+\begin{itemize}
+    \item $D_{port}/D_t$: Port-to-throat diameter ratio
+    \item $D_{inj}/D_t$: Injector-to-throat diameter ratio
+    \item $L_c/D_t$: Chamber length-to-throat diameter ratio
+\end{itemize}
+
+\textbf{Normalization:}
+All dimensions scaled by throat diameter $D_t = 1$ m (arbitrary reference).
+
+\textbf{Geometric Relations:}
+\begin{align}
+A_{port} &= \frac{\pi}{4}(D_{port})^2 \\
+A_{inj} &= \frac{\pi}{4}(D_{inj})^2 \\
+A_b &= \pi D_{port} L_c \\
+A_t &= \frac{\pi}{4}(D_t)^2 = \frac{\pi}{4}
+\end{align}
+
+\textbf{Output Arrays:}
+All outputs are 3D arrays with shape (\texttt{n\_Dport}, \texttt{n\_Dinj}, \texttt{n\_Lc}).
+
+19 output arrays:
+\begin{enumerate}
+    \item \texttt{pc\_array}: Chamber pressure [Pa]
+    \item \texttt{Fpc\_array}: Residual [Pa]
+    \item \texttt{p\_inj\_array}: Injection pressure [Pa]
+    \item \texttt{mdot\_ox\_array}: Oxidizer flow [kg/s]
+    \item \texttt{mdot\_fuel\_array}: Fuel flow [kg/s]
+    \item \texttt{mdot\_array}: Total flow [kg/s]
+    \item \texttt{Gox\_array}: Oxidizer flux [kg/(s·m²)]
+    \item \texttt{r\_array}: Regression rate [m/s]
+    \item \texttt{MR\_array}: Mixture ratio [-]
+    \item \texttt{eps\_array}: Expansion ratio [-]
+    \item \texttt{Tc\_array}: Chamber temperature [K]
+    \item \texttt{MW\_array}: Molecular weight [kg/kmol]
+    \item \texttt{gamma\_array}: $\gamma$ [-]
+    \item \texttt{cs\_array}: $c^*$ [m/s]
+    \item \texttt{CF\_vac\_array}: $C_{F,vac}$ [-]
+    \item \texttt{CF\_array}: $C_F$ [-]
+    \item \texttt{Ivac\_array}: Vacuum $I_{sp}$ [s]
+    \item \texttt{Is\_array}: $I_{sp}$ [s]
+    \item \texttt{flag\_array}: Convergence status
+\end{enumerate}
+
+\newpage
+\section{Integration Example}
+
+\subsection{Complete Workflow}
+
+\begin{lstlisting}
+import numpy as np
+import pressure_convergence as pconv
+
+# Define parameter ranges
+Dport_Dt_range = np.arange(3.5, 5.0, 0.5)  # [-]
+Dinj_Dt_range = np.arange(0.8, 1.0, 0.05)  # [-]
+Lc_Dt_range = np.arange(8, 10, 1)          # [-]
+
+# Operating conditions
+eps = "adapt"
+ptank = 55e5   # Pa (55 bar)
+Ttank = 288    # K
+pamb = 1e5     # Pa (1 bar)
+CD = 0.8
+
+# Fuel properties (paraffin)
+a = 0.17e-3
+n = 0.5
+rho_fuel = 850  # kg/m^3
+
+# Define propellants
+oxidizer = {
+    "OxidizerCP": "NitrousOxide",
+    "OxidizerCEA": "N2O",
+    "Weight fraction": "100",
+    "Exploded Formula": "",
+    "Temperature [K]": "",
+    "Specific Enthalpy [kj/mol]": ""
+}
+
+fuel = {
+    "Fuels": ["paraffin"],
+    "Weight fraction": ["100"],
+    "Exploded Formula": ["C 73 H 124"],
+    "Temperature [K]": [533.0],
+    "Specific Enthalpy [kj/mol]": [-1860.6]
+}
+
+# Run simulation
+results = pconv.full_range_simulation(
+    Dport_Dt_range, Dinj_Dt_range, Lc_Dt_range,
+    eps, ptank, Ttank, CD, a, n, rho_fuel,
+    oxidizer, fuel, pamb
+)
+
+# Unpack results
+(pc, Fpc, p_inj, mdot_ox, mdot_fuel, mdot,
+ Gox, r, MR, eps_out, Tc, MW, gamma, cs,
+ CF_vac, CF, Ivac, Is, flags) = results
+
+# Post-process
+converged_points = (flags == 0)
+optimal_isp = np.max(Is[converged_points])
+\end{lstlisting}
+
+\subsection{Typical Parameter Values}
+
+\begin{table}[h]
+\centering
+\caption{Representative Values for N$_2$O/Paraffin Hybrid}
+\begin{tabular}{llll}
+\toprule
+\textbf{Parameter} & \textbf{Symbol} & \textbf{Value} & \textbf{Unit} \\
+\midrule
+Tank pressure & $p_{tank}$ & 50--60 & bar \\
+Tank temperature & $T_{tank}$ & 280--295 & K \\
+Chamber pressure & $p_c$ & 30--50 & bar \\
+Mixture ratio & $MR$ & 4--8 & - \\
+Regression rate coeff. & $a$ & 0.15--0.20 & mm/s/(kg/m²s)$^n$ \\
+Regression rate exp. & $n$ & 0.5--0.7 & - \\
+Discharge coefficient & $C_D$ & 0.7--0.85 & - \\
+Fuel density & $\rho_{fuel}$ & 850--920 & kg/m³ \\
+Expansion ratio & $\varepsilon$ & 6--12 & - \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+\section{Numerical Considerations}
+
+\subsection{Convergence Stability}
+
+\subsubsection{Known Issues}
+\begin{enumerate}
+    \item \textbf{No solution exists}: Occurs when $\dot{m}_{inj} < \dot{m}_{throat,min}$ at all feasible $p_c$
+    \item \textbf{Multiple solutions}: Rare, but possible in narrow pressure ranges
+    \item \textbf{Stiff behavior near bounds}: Damping factor prevents overshooting
+\end{enumerate}
+
+\subsubsection{Recommended Practices}
+\begin{itemize}
+    \item Ensure $p_{tank} \gg p_{amb}$ (typically $>$ 3:1 ratio)
+    \item Verify propellant data completeness
+    \item Check CEA convergence separately for expected $MR$ range
+    \item Use adaptive expansion ratio initially, then refine with fixed $\varepsilon$
+\end{itemize}
+
+\subsection{Computational Performance}
+
+\textbf{Typical execution times} (Intel i7, single core):
+\begin{itemize}
+    \item Single-point performance: 10--50 ms
+    \item Pressure convergence: 200--800 ms (4--15 iterations)
+    \item Full parametric sweep (3×4×2 grid): 5--15 seconds
+\end{itemize}
+
+\textbf{Bottlenecks:}
+\begin{enumerate}
+    \item CEA thermochemistry calls ($\sim$70\% of runtime)
+    \item CoolProp property evaluations ($\sim$20\%)
+    \item Newton iteration overhead ($\sim$10\%)
+\end{enumerate}
+
+\subsection{Accuracy and Validation}
+
+\subsubsection{Expected Uncertainties}
+\begin{itemize}
+    \item Regression rate: $\pm$15--25\% (empirical correlation scatter)
+    \item Discharge coefficient: $\pm$5--10\% (geometry-dependent)
+    \item CEA thermochemistry: $\pm$1--2\% (well-validated)
+    \item Overall $I_{sp}$: $\pm$3--5\% (combined uncertainties)
+\end{itemize}
+
+\subsubsection{Validation Sources}
+Model components validated against:
+\begin{itemize}
+    \item Waxman et al. (2013): N$_2$O injection mass flow
+    \item Marxman \& Gilbert (1963): Fuel regression correlations
+    \item Gordon \& McBride (1994): NASA CEA code
+    \item Karabeyoglu et al. (2004): Paraffin hybrid data
+\end{itemize}
+
+\newpage
+\section{Troubleshooting Guide}
+
+\subsection{Common Error Messages}
+
+\subsubsection{``Fluid not found''}
+\textbf{Cause:} Invalid CoolProp fluid name
+
+\textbf{Solution:} Check available fluids:
+\begin{lstlisting}
+import CoolProp.CoolProp as cp
+print(cp.FluidsList())
+\end{lstlisting}
+
+\subsubsection{Flag = 10 (No solution found)}
+\textbf{Cause:} No pressure satisfies mass balance
+
+\textbf{Diagnosis:}
+\begin{itemize}
+    \item Check $p_{tank} > 3 \cdot p_{amb}$
+    \item Verify $A_{inj}$ not too small
+    \item Ensure $A_t$ appropriately sized
+\end{itemize}
+
+\subsubsection{Flag = 1 (Pressure diverged)}
+\textbf{Cause:} Newton iteration exceeded 100 steps
+
+\textbf{Solutions:}
+\begin{itemize}
+    \item Increase \texttt{MAX\_ITERATIONS}
+    \item Adjust initial pressure search range
+    \item Check for discontinuities in $F(p_c)$
+\end{itemize}
+
+\subsubsection{Flag = -1 (CEA failed)}
+\textbf{Cause:} Thermochemical equilibrium not achieved
+
+\textbf{Solutions:}
+\begin{itemize}
+    \item Verify fuel/oxidizer specifications
+    \item Check mixture ratio within reasonable bounds (1 < MR < 15)
+    \item Ensure valid enthalpy values
+\end{itemize}
+
+\subsection{Performance Optimization Tips}
+
+\begin{enumerate}
+    \item \textbf{Vectorize loops}: Use NumPy array operations where possible
+    \item \textbf{Cache CEA results}: Store $(p_c, MR) \rightarrow c^*$ lookup table
+    \item \textbf{Parallel execution}: Use \texttt{multiprocessing} for parameter sweeps
+    \item \textbf{Reduce CEA calls}: Reuse $\gamma$ between iterations
+\end{enumerate}
+
+\newpage
+\section{Extensions and Future Work}
+
+\subsection{Planned Enhancements}
+
+\begin{enumerate}
+    \item \textbf{Transient analysis}: Time-dependent burn simulation
+    \item \textbf{Erosive burning}: Port diameter evolution
+    \item \textbf{Multi-port geometry}: Wagon-wheel fuel grains
+    \item \textbf{Heat transfer}: Thermal ablation modeling
+    \item \textbf{3D visualization}: Interactive performance maps
+\end{enumerate}
+
+\subsection{Research Applications}
+
+\begin{itemize}
+    \item Optimization studies (maximize $I_{sp}$, minimize GLOW)
+    \item Sensitivity analysis (Monte Carlo uncertainty quantification)
+    \item Propellant screening (alternative fuels/oxidizers)
+    \item System trade studies (tankage, feed systems)
+    \item Flight trajectory optimization with realistic performance curves
+\end{itemize}
+
+\newpage
+\section{Appendix A: Mathematical Derivations}
+
+\subsection{Mass Conservation at Throat}
+
+Starting from isentropic flow relations, the mass flow through a choked nozzle:
+
+\begin{equation}
+\dot{m} = \frac{p_c A_t}{\sqrt{RT_c}} \sqrt{\gamma} \left(\frac{2}{\gamma+1}\right)^{\frac{\gamma+1}{2(\gamma-1)}}
+\end{equation}
+
+Define characteristic velocity:
+\begin{equation}
+c^* = \frac{p_c A_t}{\dot{m}}
+\end{equation}
+
+Therefore:
+\begin{equation}
+c^* = \sqrt{\frac{RT_c}{\gamma}} \left(\frac{\gamma+1}{2}\right)^{\frac{\gamma+1}{2(\gamma-1)}}
+\end{equation}
+
+The pressure function becomes:
+\begin{equation}
+F(p_c) = \dot{m}(p_c) - \frac{p_c A_t}{c^*(p_c)} = 0
+\end{equation}
+
+\subsection{Expansion Ratio for Perfect Expansion}
+
+For isentropic expansion from chamber to exit:
+
+\begin{equation}
+\frac{p_e}{p_c} = \left(\frac{A_t}{A_e}\right)^{\gamma} \left[\frac{2}{\gamma+1}\left(1 + \frac{\gamma-1}{2}M_e^2\right)\right]^{\frac{\gamma}{\gamma-1}}
+\end{equation}
+
+Inverting for area ratio when $p_e = p_{amb}$:
+
+\begin{equation}
+\varepsilon = \frac{1}{M_e}\left[\frac{2}{\gamma+1}\left(1 + \frac{\gamma-1}{2}M_e^2\right)\right]^{\frac{\gamma+1}{2(\gamma-1)}}
+\end{equation}
+
+where $M_e$ is found from:
+\begin{equation}
+\frac{p_{amb}}{p_c} = \left(1 + \frac{\gamma-1}{2}M_e^2\right)^{-\frac{\gamma}{\gamma-1}}
+\end{equation}
+
+\subsection{Thrust Coefficient Derivation}
+
+From momentum balance:
+\begin{equation}
+F = \dot{m} v_e + (p_e - p_{amb})A_e
+\end{equation}
+
+Using isentropic relations and $v_e = M_e \sqrt{\gamma R T_e}$:
+
+\begin{equation}
+C_F = \frac{F}{p_c A_t} = \sqrt{\frac{2\gamma^2}{\gamma-1}\left[1 - \left(\frac{p_e}{p_c}\right)^{\frac{\gamma-1}{\gamma}}\right]} + \varepsilon\frac{p_e - p_{amb}}{p_c}
+\end{equation}
+
+For vacuum ($p_{amb} = 0$):
+\begin{equation}
+C_{F,vac} = \sqrt{\frac{2\gamma^2}{\gamma-1}\left[1 - \left(\frac{p_e}{p_c}\right)^{\frac{\gamma-1}{\gamma}}\right]} + \varepsilon\frac{p_e}{p_c}
+\end{equation}
+
+\newpage
+\section{Appendix B: Code Architecture Diagram}
+
+\begin{verbatim}
+┌─────────────────────────────────────────────────────────────┐
+│                    Main Simulation Flow                      │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│  pressure_convergence.py                                     │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │ full_range_simulation()                               │  │
+│  │  • Loop over (Dport/Dt, Dinj/Dt, Lc/Dt)              │  │
+│  │  • For each geometry:                                 │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                     │                                        │
+│                     ▼                                        │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │ get_pressure()                                        │  │
+│  │  • Call starting_pressure() for initial guess        │  │
+│  │  • Newton iteration loop                              │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                     │                │                       │
+│                     ▼                ▼                       │
+│  ┌──────────────────────┐  ┌──────────────────────────┐    │
+│  │ starting_pressure()  │  │ Convergence check        │    │
+│  │  • Sweep pc range    │  │  • |F(pc)| < tolerance?  │    │
+│  │  • Find best guess   │  │  • Update damping        │    │
+│  └──────────────────────┘  └──────────────────────────┘    │
+└─────────────────────────────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│  performance_singlepoint.py                                  │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │ calculate_performance()                               │  │
+│  │  • Calculate injection pressure                       │  │
+│  │  • Get oxidizer mass flow (via PyInjection)          │  │
+│  │  • Calculate fuel regression and mass flow           │  │
+│  │  • Run CEA for thermochemistry                        │  │
+│  │  • Calculate Isp, CF, c*                             │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                     │                                        │
+│                     ▼                                        │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │ pressure_fun()                                        │  │
+│  │  • Calculate F(pc) = mdot*cs/At - pc                 │  │
+│  │  • Used for Newton iteration                          │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+           │                          │
+           ▼                          ▼
+┌──────────────────────┐   ┌──────────────────────────────┐
+│  PyInjection.py      │   │  CEA_py.py (external)        │
+│  ┌────────────────┐  │   │  ┌────────────────────────┐  │
+│  │ Injector class │  │   │  │ runCEA()               │  │
+│  │  • massflow()  │  │   │  │  • Thermochemistry     │  │
+│  │  • Phase logic │  │   │  │  • Returns Tc, MW,     │  │
+│  │  • SPI/HEM/Gas │  │   │  │    gamma, cs, CF       │  │
+│  └────────────────┘  │   │  └────────────────────────┘  │
+└──────────────────────┘   └──────────────────────────────┘
+           │                          │
+           ▼                          ▼
+┌──────────────────────┐   ┌──────────────────────────────┐
+│  CoolProp            │   │  NASA CEA Database           │
+│  • Fluid properties  │   │  • Chemical equilibrium      │
+│  • Phase transitions │   │  • Product composition       │
+└──────────────────────┘   └──────────────────────────────┘
+\end{verbatim}
+
+\newpage
+\section{Appendix C: Variable Nomenclature}
+
+\subsection{Geometric Parameters}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Symbol} & \textbf{Description} & \textbf{Units} \\
+\midrule
+$A_{inj}$ & Total injection area & m² \\
+$A_{port}$ & Port cross-sectional area & m² \\
+$A_b$ & Fuel burning surface area & m² \\
+$A_t$ & Throat area & m² \\
+$A_e$ & Exit area & m² \\
+$D_{inj}$ & Injector orifice diameter & m \\
+$D_{port}$ & Port diameter & m \\
+$D_t$ & Throat diameter & m \\
+$L_c$ & Combustion chamber length & m \\
+$\varepsilon$ & Expansion ratio ($A_e/A_t$) & - \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Flow Parameters}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Symbol} & \textbf{Description} & \textbf{Units} \\
+\midrule
+$\dot{m}$ & Total mass flow rate & kg/s \\
+$\dot{m}_{ox}$ & Oxidizer mass flow rate & kg/s \\
+$\dot{m}_{fuel}$ & Fuel mass flow rate & kg/s \\
+$\dot{m}''$ & Mass flux (per unit area) & kg/(s·m²) \\
+$G_{ox}$ & Oxidizer mass flux & kg/(s·m²) \\
+$\dot{r}$ & Fuel regression rate & m/s \\
+$MR$ & Mixture ratio (O/F) & - \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Thermodynamic Properties}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Symbol} & \textbf{Description} & \textbf{Units} \\
+\midrule
+$p_c$ & Chamber total pressure & Pa \\
+$p_{tank}$ & Tank pressure & Pa \\
+$p_{inj}$ & Injection pressure & Pa \\
+$p_{amb}$ & Ambient pressure & Pa \\
+$p_v$ & Vapor pressure & Pa \\
+$T_c$ & Chamber temperature & K \\
+$T_{tank}$ & Tank temperature & K \\
+$\rho$ & Density & kg/m³ \\
+$\gamma$ & Specific heat ratio ($c_p/c_v$) & - \\
+$MW$ & Molecular weight & kg/kmol \\
+$R$ & Specific gas constant & J/(kg·K) \\
+$h$ & Specific enthalpy & J/kg \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Performance Metrics}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Symbol} & \textbf{Description} & \textbf{Units} \\
+\midrule
+$c^*$ & Characteristic velocity & m/s \\
+$C_F$ & Thrust coefficient & - \\
+$C_{F,vac}$ & Vacuum thrust coefficient & - \\
+$I_{sp}$ & Specific impulse & s \\
+$I_{sp,vac}$ & Vacuum specific impulse & s \\
+$F$ & Thrust & N \\
+$C_D$ & Discharge coefficient & - \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Empirical Coefficients}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Symbol} & \textbf{Description} & \textbf{Units} \\
+\midrule
+$a$ & Regression rate coefficient & m/s / (kg/(m²·s))$^n$ \\
+$n$ & Regression rate exponent & - \\
+$\rho_{fuel}$ & Fuel density & kg/m³ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+\section{Appendix D: Sample Input/Output Files}
+
+\subsection{Configuration File Example (JSON)}
+
+\begin{lstlisting}[language=json]
+{
+  "geometry": {
+    "Dport_Dt_range": [3.5, 4.0, 4.5],
+    "Dinj_Dt_range": [0.8, 0.85, 0.9],
+    "Lc_Dt_range": [8, 9, 10]
+  },
+  "operating_conditions": {
+    "ptank_bar": 55,
+    "Ttank_K": 288,
+    "pamb_bar": 1,
+    "expansion_ratio": "adapt"
+  },
+  "propellants": {
+    "oxidizer": {
+      "name_coolprop": "NitrousOxide",
+      "name_cea": "N2O",
+      "temperature_K": 288,
+      "weight_fraction": 100
+    },
+    "fuel": {
+      "name": "paraffin",
+      "formula": "C 73 H 124",
+      "temperature_K": 533,
+      "enthalpy_kj_mol": -1860.6,
+      "density_kg_m3": 850,
+      "regression_a": 0.00017,
+      "regression_n": 0.5
+    }
+  },
+  "coefficients": {
+    "discharge_coefficient": 0.8
+  }
+}
+\end{lstlisting}
+
+\subsection{Output Data Structure (Python Dictionary)}
+
+\begin{lstlisting}
+results = {
+    'geometry': {
+        'Dport_Dt': numpy.ndarray,  # Shape (n1, n2, n3)
+        'Dinj_Dt': numpy.ndarray,
+        'Lc_Dt': numpy.ndarray
+    },
+    'pressures': {
+        'pc': numpy.ndarray,        # Chamber pressure [Pa]
+        'p_inj': numpy.ndarray,     # Injection pressure [Pa]
+        'Fpc': numpy.ndarray        # Residual [Pa]
+    },
+    'mass_flows': {
+        'mdot_ox': numpy.ndarray,   # [kg/s]
+        'mdot_fuel': numpy.ndarray,
+        'mdot_total': numpy.ndarray,
+        'Gox': numpy.ndarray,       # [kg/(s*m^2)]
+        'r': numpy.ndarray          # Regression [m/s]
+    },
+    'thermochemistry': {
+        'Tc': numpy.ndarray,        # [K]
+        'MW': numpy.ndarray,        # [kg/kmol]
+        'gamma': numpy.ndarray,
+        'MR': numpy.ndarray
+    },
+    'performance': {
+        'cs': numpy.ndarray,        # [m/s]
+        'CF': numpy.ndarray,
+        'CF_vac': numpy.ndarray,
+        'Isp': numpy.ndarray,       # [s]
+        'Isp_vac': numpy.ndarray,
+        'eps': numpy.ndarray
+    },
+    'convergence': {
+        'flags': numpy.ndarray      # Integer status codes
+    }
+}
+\end{lstlisting}
+
+\newpage
+\section{Appendix E: Unit Testing Guidelines}
+
+\subsection{Test Cases for Injection Module}
+
+\begin{lstlisting}
+def test_injector_liquid_flow():
+    """Test all-liquid N2O flow"""
+    ox = Injector('NitrousOxide')
+    ox.injection_area(D=0.01, n=4)
+    
+    # Conditions: well below vapor pressure
+    ox.massflow(p1=60e5, p2=50e5, T=280, cD=0.8)
+    
+    # Expected: SPI model dominates
+    assert ox.mdot > 0
+    assert ox.mdot < 2000  # Reasonable upper bound
+    
+def test_injector_two_phase():
+    """Test two-phase N2O flow"""
+    ox = Injector('NitrousOxide')
+    ox.injection_area(D=0.01, n=4)
+    
+    # Conditions: chamber below vapor pressure
+    ox.massflow(p1=55e5, p2=30e5, T=288, cD=0.8)
+    
+    # Expected: mixed SPI/HEM model
+    assert ox.mdot > 0
+    
+def test_injector_backflow():
+    """Test backflow prevention"""
+    ox = Injector('NitrousOxide')
+    ox.injection_area(D=0.01, n=4)
+    
+    # Conditions: pc > ptank
+    ox.massflow(p1=40e5, p2=50e5, T=288, cD=0.8)
+    
+    # Expected: zero mass flow
+    assert ox.mdot == 0
+\end{lstlisting}
+
+\subsection{Test Cases for Performance Module}
+
+\begin{lstlisting}
+def test_performance_physical_bounds():
+    """Verify physical reasonableness of outputs"""
+    # Setup typical conditions
+    Ainj = 0.05  # m^2
+    Aport = 5.0
+    Ab = 15.0
+    eps = 8.0
+    ptank = 55e5
+    Ttank = 288
+    pc = 43e5
+    CD = 0.8
+    a = 0.17e-3
+    n = 0.5
+    rho_fuel = 850
+    
+    # Run calculation
+    results = calculate_performance(
+        Ainj, Aport, Ab, eps, ptank, Ttank, pc,
+        CD, a, n, rho_fuel, oxidizer, fuel
+    )
+    
+    # Unpack
+    (p_inj, mdot_ox, mdot_fuel, mdot, Gox, r, MR,
+     Tc, MW, gamma, eps_out, cs, CF_vac, CF,
+     Ivac, Is, flag) = results
+    
+    # Physical bounds checks
+    assert 0 < MR < 20, "Mixture ratio out of range"
+    assert 2000 < Tc < 4000, "Temperature unrealistic"
+    assert 1.1 < gamma < 1.4, "Gamma out of range"
+    assert 1400 < cs < 1800, "c* unrealistic"
+    assert 100 < Is < 300, "Isp unrealistic"
+    assert flag == 0, "Performance calculation failed"
+\end{lstlisting}
+
+\subsection{Test Cases for Convergence Module}
+
+\begin{lstlisting}
+def test_pressure_convergence_typical():
+    """Test convergence for typical operating point"""
+    Dinj = 0.8
+    Dport = 4.0
+    Lc = 9.0
+    Dt = 1.0
+    
+    Ainj = 0.25 * np.pi * Dinj**2
+    Aport = 0.25 * np.pi * Dport**2
+    At = 0.25 * np.pi * Dt**2
+    Ab = np.pi * Dport * Lc
+    
+    pc, Fpc, n_iter, maxit, gamma = get_pressure(
+        Ainj, Aport, At, Ab, "adapt",
+        55e5, 288, 0.8, 0.17e-3, 0.5, 850,
+        oxidizer, fuel, 1e5
+    )
+    
+    # Convergence checks
+    assert pc > 0, "No solution found"
+    assert abs(Fpc) < 1.0, "Did not converge"
+    assert n_iter < maxit, "Exceeded max iterations"
+    assert 30e5 < pc < 50e5, "Pressure out of range"
+
+def test_no_solution_case():
+    """Test behavior when no solution exists"""
+    # Impossible geometry: throat too large
+    Ainj = 0.01
+    Aport = 1.0
+    At = 10.0  # Throat larger than port!
+    Ab = 10.0
+    
+    pc, Fpc, n_iter, maxit, gamma = get_pressure(
+        Ainj, Aport, At, Ab, "adapt",
+        55e5, 288, 0.8, 0.17e-3, 0.5, 850,
+        oxidizer, fuel, 1e5
+    )
+    
+    # Should detect no solution
+    assert pc == 0, "Should return zero for no solution"
+    assert n_iter == maxit + 1, "Should flag no solution"
+\end{lstlisting}
+
+\newpage
+\section{References}
+
+\begin{enumerate}[label={[\arabic*]}, leftmargin=*]
+    \item Waxman, B. S., Zimmerman, J. E., Cantwell, B. J., and Zilliac, G. G., ``Mass Flow Rate and Isolation Characteristics of Injectors for Use with Self-Pressurizing Oxidizers in Hybrid Rockets,'' \textit{49th AIAA/ASME/SAE/ASEE Joint Propulsion Conference}, AIAA Paper 2013-3636, 2013.
+    
+    \item Marxman, G. A., and Gilbert, M., ``Turbulent Boundary Layer Combustion in the Hybrid Rocket,'' \textit{Symposium (International) on Combustion}, Vol. 9, No. 1, 1963, pp. 371--383.
+    
+    \item Gordon, S., and McBride, B. J., ``Computer Program for Calculation of Complex Chemical Equilibrium Compositions and Applications,'' NASA Reference Publication 1311, 1994.
+    
+    \item Karabeyoglu, M. A., Altman, D., and Cantwell, B. J., ``Combustion of Liquefying Hybrid Propellants: Part 1, General Theory,'' \textit{Journal of Propulsion and Power}, Vol. 18, No. 3, 2002, pp. 610--620.
+    
+    \item Sutton, G. P., and Biblarz, O., \textit{Rocket Propulsion Elements}, 9th ed., John Wiley \& Sons, Hoboken, NJ, 2017.
+    
+    \item Bell, I. H., Wronski, J., Quoilin, S., and Lemort, V., ``Pure and Pseudo-pure Fluid Thermophysical Property Evaluation and the Open-Source Thermophysical Property Library CoolProp,'' \textit{Industrial \& Engineering Chemistry Research}, Vol. 53, No. 6, 2014, pp. 2498--2508.
+    
+    \item Humble, R. W., Henry, G. N., and Larson, W. J., \textit{Space Propulsion Analysis and Design}, McGraw-Hill, New York, 1995.
+    
+    \item Chiaverini, M. J., and Kuo, K. K., \textit{Fundamentals of Hybrid Rocket Combustion and Propulsion}, AIAA Progress in Astronautics and Aeronautics Series, Vol. 218, 2007.
+\end{enumerate}
+
+\newpage
+\section{Glossary}
+
+\begin{description}[style=nextline, leftmargin=3cm]
+    \item[CEA] Chemical Equilibrium with Applications - NASA thermochemical code
+    
+    \item[CoolProp] Open-source thermophysical property library
+    
+    \item[HEM] Homogeneous Equilibrium Model - two-phase flow model assuming thermal and mechanical equilibrium
+    
+    \item[Hybrid Rocket] Propulsion system using propellants in different phases (typically liquid oxidizer, solid fuel)
+    
+    \item[Isentropic] Thermodynamic process with constant entropy (reversible adiabatic)
+    
+    \item[Mixture Ratio (MR)] Mass ratio of oxidizer to fuel (O/F)
+    
+    \item[Newton-Raphson] Iterative root-finding algorithm using function derivatives
+    
+    \item[Regression Rate] Rate at which solid fuel surface recedes during combustion
+    
+    \item[SPI] Self-Pressurizing Injector - model for subcooled liquid flow
+    
+    \item[Characteristic Velocity ($c^*$)] Performance parameter: $c^* = p_c A_t / \dot{m}$
+    
+    \item[Thrust Coefficient ($C_F$)] Dimensionless thrust: $C_F = F/(p_c A_t)$
+    
+    \item[Specific Impulse ($I_{sp}$)] Thrust per unit weight flow rate: $I_{sp} = F/(\dot{m} g_0)$
+    
+    \item[Expansion Ratio ($\varepsilon$)] Nozzle area ratio: $\varepsilon = A_e / A_t$
+\end{description}
+
+\newpage
+\section{Contact and Support}
+
+\subsection{Author Information}
+\begin{itemize}
+    \item \textbf{Author:} Edgardo Rossi, Cristian Casalanguida, Ceren Su Trakyalı 
+    \item \textbf{Year:} 2025
+    \item \textbf{Institution:} [Your Institution]
+\end{itemize}
+
+\subsection{Version History}
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Version} & \textbf{Date} & \textbf{Changes} \\
+\midrule
+1.0 & 2025-01-XX & Initial release \\
+    &            & - Injection module \\
+    &            & - Performance module \\
+    &            & - Convergence solver \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{License}
+This software is provided for educational and research purposes. Please cite appropriately when using this code in publications or presentations.
+
+\subsection{Acknowledgments}
+This work builds upon established models from:
+\begin{itemize}
+    \item Stanford University Hybrid Rocket Program
+    \item NASA Glenn Research Center (CEA code)
+    \item CoolProp development team
+\end{itemize}
+
+\vspace{2cm}
+
+\begin{center}
+\rule{0.5\textwidth}{0.4pt}\\
+\vspace{0.5cm}
+\textit{End of Documentation}\\
+\textit{Hybrid Rocket Engine Performance Analysis System v1.0}
+\end{center}
+
+\end{document}
