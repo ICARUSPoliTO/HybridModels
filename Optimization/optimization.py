@@ -42,11 +42,11 @@ def starting_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank, CD, a, n, rho_fuel
     """
 
     if pamb <= 0: # pamb should never be negative obviously but never trust the user
-        pc_range_a = np.linspace(1, 0.8 * ptank, 50)
+        pc_range_a = np.linspace(1, 0.8 * ptank, 100)
         pc_range_b = np.linspace(0.8 * ptank, ptank, 100)
         pc_range = np.concatenate((pc_range_a, pc_range_b[1:]))
     else:
-        pc_range_a = np.linspace(pamb, 0.8 * ptank, 50)
+        pc_range_a = np.linspace(pamb, 0.8 * ptank, 100)
         pc_range_b = np.linspace(0.8 * ptank, ptank, 100)
         pc_range = np.concatenate((pc_range_a, pc_range_b[1:]))
 
