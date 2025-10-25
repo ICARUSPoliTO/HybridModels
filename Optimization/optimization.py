@@ -42,9 +42,13 @@ def starting_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank, CD, a, n, rho_fuel
     """
 
     if pamb <= 0: # pamb should never be negative obviously but never trust the user
-        pc_range = np.linspace(1, 0.9*ptank, num=50) # 0.9*ptank to account for losses
+        pc_range_a = np.linspace(1, 0.8 * ptank, 50)
+        pc_range_b = np.linspace(0.8 * ptank, ptank, 100)
+        pc_range = np.concatenate((pc_range_a, pc_range_b[1:]))
     else:
-        pc_range = np.linspace(pamb, 0.9*ptank, num=50) # 0.9*ptank to account for losses
+        pc_range_a = np.linspace(pamb, 0.8 * ptank, 50)
+        pc_range_b = np.linspace(0.8 * ptank, ptank, 100)
+        pc_range = np.concatenate((pc_range_a, pc_range_b[1:]))
 
     Fpcs = np.ones(np.shape(pc_range))
 
@@ -65,7 +69,6 @@ def starting_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank, CD, a, n, rho_fuel
 
     if np.all(abs(Fpcs)==Fpcs) or np.all(-abs(Fpcs)==Fpcs):
         pc_best = 0 # No zero can be found, don't waste time
-
 
     return pc_best
 
@@ -116,7 +119,7 @@ def get_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank, CD, a, n, rho_fuel, oxi
     """
     k_Newton = 1
     n_iter = 0
-    maxit = 100
+    maxit = 1000
 
     dpc = 10 #[Pa] Small value for our purposes.
     # Probably every purpose if you're not dealing with void chambers.
@@ -147,10 +150,10 @@ def get_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank, CD, a, n, rho_fuel, oxi
 
         pc = pc - k_Newton*Fpc/dFpc
 
-        if pc < pamb:
+        if pc <= pamb:
             pc = max(0.2 * ptank, 1.5 * pamb)
             k_Newton = k_Newton - 0.05
-        elif pc >= 0.9*ptank:
+        elif pc >= ptank:
             pc = 0.75 * ptank
             k_Newton = k_Newton - 0.05
 
@@ -312,19 +315,19 @@ def full_range_simulation(Dport_Dt_range, Dinj_Dt_range, Lc_Dt_range, eps, ptank
 
 
 if __name__=="__main__":
-    """
-    Dinj = 0.3  # [m]
+    #"""
+    Dinj = 0.8  # [m]
     ninj = 1
     Ainj = ninj * 0.25 * np.pi * (Dinj ** 2)
 
-    Dport = 2.5  # [m]
+    Dport = 7  # [m]
     nport = 1
     Aport = nport * 0.25 * np.pi * (Dport ** 2)
 
     Dt = 1
     At = 0.25 * np.pi * (Dt ** 2)
 
-    Lc = 3  # [m]
+    Lc = 15  # [m]
     Ab = nport * np.pi * Dport * Lc
     """
 
@@ -358,7 +361,7 @@ if __name__=="__main__":
 
     start = time.process_time()
 
-    """
+    #"""
     pc_start = starting_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank, CD, a, n,
                                  rho_fuel, oxidizer, fuel, pamb, gamma0)
 
@@ -367,6 +370,11 @@ if __name__=="__main__":
                                              CD, a, n, rho_fuel, oxidizer, fuel, pamb, gamma0)
         pc, Fpc, n_end, maxit, gamma_out = get_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank, CD, a, n,
                                      rho_fuel, oxidizer, fuel, pamb, gamma0)
+        (p_inj, mdot_ox, mdot_fuel, mdot, Gox, r, MR, Tc, MW, gamma, eps_out, cs,
+         CF_vac, CF, Ivac, Is, flag_performance) = \
+            (perfs.calculate_performance(Ainj, Aport, Ab, eps, ptank, Ttank, pc, CD, a, n, rho_fuel,
+                                         oxidizer, fuel, pamb, gamma0))
+
     else:
         Fpc_start = 0
         pc = 0
@@ -385,13 +393,16 @@ if __name__=="__main__":
     end = time.process_time()
     runtime = (end - start)
 
-    """
+    #"""
     print("pc_start=    "+str(pc_start)+"Pa")
     print("Fpc_start=   "+str(Fpc_start)+"Pa")
     print("pc=          "+str(pc)+"Pa")
     print("Fpc=         "+str(Fpc)+"Pa")
     print("gamma=       "+str(gamma_out))
     print("n_end=       "+str(n_end)+"/"+str(maxit))
+    print("mdot_ox=     "+str(mdot_ox)+"kg/s")
+    print("mdot_fuel=   "+str(mdot_fuel)+"kg/s")
+    print("mdot=        "+str(mdot)+"kg/s")
     """
     print("eps=")
     print(eps_array)

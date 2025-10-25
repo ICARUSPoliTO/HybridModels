@@ -115,6 +115,14 @@ def calculate_performance(Ainj, Aport, Ab, eps, ptank, Ttank, pc, CD,
         gamma=0
         cs=0
         CF_vac=0
+    except ZeroDivisionError:
+        flag_performance = 1
+        MR = 0
+        Tc = 0
+        MW = 0
+        gamma = 0
+        cs = 0
+        CF_vac = 0
 
     CF = CF_vac - eps_out*(pamb/pc)
 
@@ -175,25 +183,30 @@ def pressure_fun(Ainj, Aport, At, Ab, eps, ptank, Ttank, pc, CD, a, n, rho_fuel,
 
 
 if __name__ == "__main__":
-    Dinj = 0.3  # [m]
+    Dinj = 0.8  # [m]
     ninj = 1
     Ainj = ninj * 0.25 * np.pi * (Dinj ** 2)
 
-    Dport = 2.5  # [m]
+    Dport = 7  # [m]
     nport = 1
     Aport = nport * 0.25 * np.pi * (Dport ** 2)
 
     Dt = 1
     At = 0.25 * np.pi * (Dt ** 2)
 
-    Lc = 3  # [m]
+    Lc = 15  # [m]
     Ab = nport * np.pi * Dport * Lc
 
-    pc = 43e5
+    #pc = 43e5
     eps = "adapt"
     ptank = 55e5  # [Pa]
     Ttank = 288  # [K]
-    pamb = 1e5  # [Pa]
+    pamb = 1  # [Pa]
+
+    pc_range_a = np.linspace(pamb, 0.8*ptank, 50)
+    pc_range_b = np.linspace(0.8 * ptank, ptank, 100)
+    pc_range = np.concatenate((pc_range_a, pc_range_b[1:]))
+    Fpc_range = 1e8*np.ones(len(pc_range))
     gamma0 = 1.3
     CD = 0.8
     a = 0.17e-3
@@ -214,10 +227,13 @@ if __name__ == "__main__":
         }
 
     start = time.perf_counter()
-    p_inj, mdot_ox, mdot_fuel, mdot, Gox, r, MR, Tc, MW, gamma, eps_out, cs, CF_vac, CF, Ivac, Is, flag_performance\
-        =calculate_performance(Ainj, Aport, Ab, eps, ptank, Ttank, pc, CD, a, n, rho_fuel, oxidizer, fuel, pamb)
+    for ind_pc, pc in enumerate(pc_range):
+        p_inj, mdot_ox, mdot_fuel, mdot, Gox, r, MR, Tc, MW, gamma, eps_out, cs, CF_vac, CF, Ivac, Is, flag_performance\
+            =calculate_performance(Ainj, Aport, Ab, eps, ptank, Ttank, pc, CD, a, n, rho_fuel, oxidizer, fuel, pamb)
 
-    Fpc = pressure_fun(Ainj, Aport, At, Ab, eps, ptank, Ttank, pc, CD, a, n, rho_fuel, oxidizer, fuel, pamb)
+        Fpc = pressure_fun(Ainj, Aport, At, Ab, eps, ptank, Ttank, pc, CD, a, n, rho_fuel, oxidizer, fuel, pamb)
+
+        Fpc_range[ind_pc] = Fpc
 
     end = time.perf_counter()
     runtime = (end - start)*1e3
@@ -242,4 +258,23 @@ if __name__ == "__main__":
     print("Fpc=                 "+str(Fpc))
     print("runtime=             "+str(runtime)+"    ms"    )
 
+    # remove bad solutions
+    mask = Fpc_range != 1e8
+    Fpc_range = Fpc_range[mask]
+    pc_range = pc_range[mask]
+
+    if (np.all(abs(Fpc_range)==Fpc_range)
+            or np.all(-abs(Fpc_range)==Fpc_range)):
+        acceptable = "CONFIGURATION UNACCEPTABLE" # No zero can be found, don't waste time
+    else:
+        acceptable = "CONFIGURATION ACCEPTABLE"
+
+    plt.plot(pc_range, Fpc_range)
+    plt.xlabel("pc [Pa]")
+    plt.ylabel("Fpc [Pa]")
+    plt.axhline(y=0, color='k')
+    plt.axvline(x=0, color='k')
+    plt.title("Dp="+str(Dport)+"; Dinj="+str(Dinj)+"; L="+str(Lc))
+    plt.text(0, 2e6, acceptable)
+    plt.show()
 ## end of file
