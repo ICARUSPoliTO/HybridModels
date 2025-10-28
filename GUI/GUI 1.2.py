@@ -10,6 +10,9 @@ class HybridRocketGUI:
         self.root.geometry("1400x900")
         self.root.configure(bg='#2b2b2b')
 
+        # Maximize the window
+        self.root.state('zoomed')
+
         # Colori
         self.bg_dark = '#2b2b2b'
         self.bg_medium = '#3c3c3c'
@@ -170,11 +173,11 @@ class HybridRocketGUI:
         # Sezione Nozzle
         self.create_section_in_frame(scrollable_frame, "Nozzle", ["Expansion Ratio", "Throat Diameter (m)"])
 
-        # Frame fisso per il bottone Save in basso a destra
-        button_frame = tk.Frame(self.content_frame, bg=self.bg_dark)
-        button_frame.place(relx=1.0, rely=1.0, anchor='se', x=-20, y=-20)
+        # Sposta il bottone Save alla fine
+        save_button_frame = tk.Frame(scrollable_frame, bg=self.bg_dark)
+        save_button_frame.pack(fill=tk.X, pady=(20, 0))
 
-        self.save_btn = tk.Button(button_frame, text="Save configuration",
+        self.save_btn = tk.Button(save_button_frame, text="Save configuration",
                                   font=('Arial', 12, 'bold'),
                                   bg='#8b0000', fg='white', relief=tk.RAISED,
                                   padx=20, pady=10, command=self.validate_and_save,
