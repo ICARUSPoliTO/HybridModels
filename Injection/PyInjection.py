@@ -51,7 +51,7 @@ class Injector(object):
             mdot_SPI = cD * np.sqrt(2 * dSPI * (p1 - p2)) #[kg/s*m^2]
 
             mdot_HEM = cD * d2 * np.sqrt(2 * abs(h1 - h2)) #[kg/s*m^2]
-
+            """
             if pV > p1: # N2O is always gas
                 gamma = (cp.PropsSI('CPMASS', 'P', p1, 'T', T, self.fluid)
                          /cp.PropsSI('CVMASS', 'P', p1, 'T', T, self.fluid))
@@ -64,8 +64,8 @@ class Injector(object):
                     mdot = mdot * gammone
                 else:
                     mdot= mdot * np.sqrt((2 * gamma) * ((p2 / p1) ** (2 / gamma) - (p2 / p1) ** ((gamma + 1) / gamma)) / (gamma - 1))
-
-            elif pV > p2: # N2O exits as a mixture
+            """
+            if pV > p2: # N2O exits as a mixture
                 k = np.sqrt((p1 - p2) / (pV - p2))
 
                 mdot = (k * mdot_SPI / (k + 1) + mdot_HEM / (k + 1)) #[kg/s*m^2]
