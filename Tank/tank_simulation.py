@@ -76,15 +76,41 @@ def starting_conditions(m0, T0, Vtank, oxidizer):
     return ptank0, sL0, sV0, mL0, mV0, Q0, s0, S0
 
 
-def do_one_step(ptank, pc, pamb, Ttank, sL, sV, S, m, oxidizer, CD, Ainj, plim, Avent, CD_vent, Vtank, dt):
-    # Calculate injection pressure after losses. May require iterations with Oxidizer injection
-    p_inj = ptank - linelosses.linelosses()  # add input for line losses here and in the inputs of the function
-
-    # Calculate injection mass flow
-    inj = injection.Injector(oxidizer["OxidizerCP"])
-    inj.massflow(p_inj, pc, Ttank, CD)
-    mdotL = inj.mdot * Ainj  #[kg/s]
-
+def do_one_step(mdotL, ptank, pamb, Ttank, sL, sV, S, m, oxidizer, plim, Avent, CD_vent, Vtank, dt):
+    """
+    This function does a time-step for the blow-down of the tank. If the pressure is over the imposed limit,
+    it vents out the gas (ideal).
+    :param mdotL: Liquid mass flow [kg/s]
+    :param ptank: Tank pressure [Pa]
+    :param pamb: Ambient pressure [Pa]
+    :param Ttank: Tank temperature [K]
+    :param sL: Liquid specific entropy [J/kgK]
+    :param sV: Vapor specific entropy [J/kgK]
+    :param S: Total entropy [J/K]
+    :param m: Total mass [kg]
+    :param oxidizer: oxidizer properties (Coolprop & CEA)
+        {"OxidizerCP" : "", <--Name for CoolProp
+        "OxidizerCEA" : "", <--Name for CEA
+        "Weight fraction" : "100", # Multi-fluid Ox injector not available
+        "Exploded Formula": "",
+        "Temperature [K]" : "",
+        "Specific Enthalpy [kj/mol]" : ""
+        }
+    :param plim: Limit pressure of the tank [Pa]
+    :param Avent: Vent area [m^2]
+    :param CD_vent: Vent port CD
+    :param Vtank: Tank volume [m^3]
+    :param dt: Time step [s]
+    :return: m_new (total mass after time-step) [kg],
+             mL_new (liquid mass after time-step) [kg],
+             mV_new (vapor mass after time-step) [kg],
+             Q_new (vapor quality after time-step),
+             sL_new (liquid specific entropy after time-step) [J/kgK],
+             sV_new (vapor specific entropy after time-step) [J/kgK],
+             S_new (total entropy after time-step) [J/K],
+             ptank_new (tank pressure after time-step) [Pa],
+             Ttank_new (tank temperature after time-step) [K]
+    """
     if ptank > plim:
         gamma = (cp.PropsSI('CPMASS', 'P', ptank, 'T', Ttank, oxidizer["OxidizerCP"])
                  / cp.PropsSI('CVMASS', 'P', ptank, 'T', Ttank, oxidizer["OxidizerCP"]))
