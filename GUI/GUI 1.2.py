@@ -26,6 +26,19 @@ class HybridRocketGUI:
         self.inputs = {}
         self.current_page = 'configuration'
 
+        # Define custom styles for rounded buttons
+        self.style = ttk.Style()
+        self.style.configure("Rounded.TButton",
+                             font=('Arial', 11),
+                             padding=6,
+                             relief="flat",
+                             borderwidth=0,
+                             background=self.button_inactive,
+                             foreground='black')
+        self.style.map("Rounded.TButton",
+                       background=[('active', self.button_active), ('!active', self.button_inactive)],
+                       foreground=[('active', 'white'), ('!active', 'black')])
+
         # Menu principale e navigazione
         self.create_header()
         self.create_sidebar()
@@ -38,7 +51,7 @@ class HybridRocketGUI:
         self.show_configuration_page()
 
     def close_dropdown_on_click(self, event):
-        if self.dropdown_visible and self.dropdown_frame:
+        if hasattr(self, 'dropdown_frame') and self.dropdown_frame:
             # Verifica se il click è fuori dal dropdown
             if event.widget != self.dropdown_frame and event.widget.master != self.dropdown_frame:
                 self.toggle_menu()
@@ -47,71 +60,56 @@ class HybridRocketGUI:
         header = tk.Frame(self.root, bg=self.bg_dark, height=60)
         header.pack(side=tk.TOP, fill=tk.X)
 
-        title = tk.Label(header, text="HYBRID MODEL er", font=('Arial', 24, 'bold'),
+        title = tk.Label(header, text="HYBRID MODEL", font=('Arial', 24, 'bold'),
                          bg=self.bg_dark, fg=self.text_color)
-        title.pack(pady=10, expand=True)
+        title.pack(side=tk.LEFT, padx=20)
 
     def create_sidebar(self):
         sidebar = tk.Frame(self.root, bg=self.bg_medium, width=150)
         sidebar.pack(side=tk.LEFT, fill=tk.Y)
         sidebar.pack_propagate(False)
 
-        # Menu button con dropdown
-        menu_frame = tk.Frame(sidebar, bg=self.bg_medium)
-        menu_frame.pack(pady=10, padx=10, fill=tk.X)
+        # Add the main menu button at the top of the sidebar
+        self.menu_button = ttk.Button(sidebar, text="Menu", style="Rounded.TButton", command=self.toggle_menu)
+        self.menu_button.pack(fill=tk.X, padx=10, pady=10)
 
-        self.menu_button = tk.Button(menu_frame, text="Main Menu ☰",
-                                     font=('Arial', 10), bg=self.bg_light, fg='black',
-                                     relief=tk.RAISED, command=self.toggle_menu,
-                                     highlightthickness=0, bd=2)
-        self.menu_button.pack(fill=tk.X)
-
-        # Dropdown menu (inizialmente nascosto) - posizionato assolutamente
-        self.dropdown_frame = None
-        self.dropdown_visible = False
-
-        # Pulsanti pagine
+        # Page buttons
         self.page_buttons = {}
         pages = ['configuration', 'optimization', 'mission', 'output']
 
         for page in pages:
-            btn = tk.Button(sidebar, text=page, font=('Arial', 11),
-                            bg=self.button_active if page == 'configuration' else self.button_inactive,
-                            fg='black', relief=tk.FLAT, height=2,
-                            command=lambda p=page: self.change_page(p),
-                            highlightthickness=0, bd=0)
+            btn = ttk.Button(sidebar, text=page.capitalize(),
+                             style="Rounded.TButton",
+                             command=lambda p=page: self.change_page(p))
             btn.pack(fill=tk.X, padx=10, pady=5)
             self.page_buttons[page] = btn
 
     def toggle_menu(self):
-        if self.dropdown_visible:
-            if self.dropdown_frame:
-                self.dropdown_frame.destroy()
-                self.dropdown_frame = None
-            self.dropdown_visible = False
+        if hasattr(self, 'dropdown_frame') and self.dropdown_frame:
+            self.dropdown_frame.destroy()
+            self.dropdown_frame = None
         else:
-            # Crea dropdown a destra del pulsante
+            # Create dropdown menu
             x = self.menu_button.winfo_rootx() + self.menu_button.winfo_width()
             y = self.menu_button.winfo_rooty()
 
             self.dropdown_frame = tk.Toplevel(self.root)
             self.dropdown_frame.overrideredirect(True)
-            self.dropdown_frame.geometry(f"120x90+{x}+{y}")
+            self.dropdown_frame.geometry(f"150x100+{x}+{y}")
             self.dropdown_frame.configure(bg=self.bg_active)
 
-            tk.Button(self.dropdown_frame, text="SAVE", font=('Arial', 10),
+            # Add dropdown options
+            tk.Button(self.dropdown_frame, text="Save", font=('Arial', 10),
                       bg=self.bg_light, command=self.save_config,
                       relief=tk.FLAT, anchor='w', highlightthickness=0, bd=0).pack(fill=tk.X, pady=2, padx=2)
-            tk.Button(self.dropdown_frame, text="SAVE AS", font=('Arial', 10),
+            tk.Button(self.dropdown_frame, text="Save As", font=('Arial', 10),
                       bg=self.bg_light, command=self.save_config_as,
                       relief=tk.FLAT, anchor='w', highlightthickness=0, bd=0).pack(fill=tk.X, pady=2, padx=2)
-            tk.Button(self.dropdown_frame, text="OPEN", font=('Arial', 10),
+            tk.Button(self.dropdown_frame, text="Open", font=('Arial', 10),
                       bg=self.bg_light, command=self.open_config,
                       relief=tk.FLAT, anchor='w', highlightthickness=0, bd=0).pack(fill=tk.X, pady=2, padx=2)
 
-            self.dropdown_visible = True
-
-            # Chiudi quando clicchi fuori
+            # Close dropdown when clicking outside
             self.dropdown_frame.bind("<FocusOut>", lambda e: self.toggle_menu())
             self.root.bind("<Button-1>", self.close_dropdown_on_click)
 
@@ -119,9 +117,9 @@ class HybridRocketGUI:
         # Aggiorna colori pulsanti
         for p, btn in self.page_buttons.items():
             if p == page:
-                btn.configure(bg=self.button_active)
+                self.style.configure("Rounded.TButton", background=self.button_active)
             else:
-                btn.configure(bg=self.button_inactive)
+                self.style.configure("Rounded.TButton", background=self.button_inactive)
 
         self.current_page = page
 
@@ -173,16 +171,14 @@ class HybridRocketGUI:
         # Sezione Nozzle
         self.create_section_in_frame(scrollable_frame, "Nozzle", ["Expansion Ratio", "Throat Diameter (m)"])
 
-        # Sposta il bottone Save alla fine
+        # Bottone Save alla fine
         save_button_frame = tk.Frame(scrollable_frame, bg=self.bg_dark)
         save_button_frame.pack(fill=tk.X, pady=(20, 0))
 
-        self.save_btn = tk.Button(save_button_frame, text="Save configuration",
-                                  font=('Arial', 12, 'bold'),
-                                  bg='#8b0000', fg='white', relief=tk.RAISED,
-                                  padx=20, pady=10, command=self.validate_and_save,
-                                  highlightthickness=0, bd=2)
-        self.save_btn.pack()
+        save_btn = ttk.Button(save_button_frame, text="Save Configuration",
+                              style="Rounded.TButton",
+                              command=self.validate_and_save)
+        save_btn.pack(pady=10)
 
         # Valida input inizialmente
         self.validate_inputs()
@@ -207,11 +203,9 @@ class HybridRocketGUI:
 
         # Pulsante import (solo per Line)
         if has_import:
-            import_btn = tk.Button(header_frame, text="import line",
-                                   font=('Arial', 10), bg='#3c3c3c', fg='white',
-                                   relief=tk.RAISED, padx=15, pady=5,
-                                   command=self.import_line_placeholder,
-                                   highlightthickness=0, bd=2)
+            import_btn = ttk.Button(header_frame, text="Import Line",
+                                    style="Rounded.TButton",
+                                    command=self.import_line_placeholder)
             import_btn.pack(side=tk.LEFT, padx=(20, 0))
 
         # Campi input
@@ -264,9 +258,9 @@ class HybridRocketGUI:
 
         # Cambia colore del bottone
         if all_valid and len(self.inputs) > 0:
-            self.save_btn.configure(bg='#006400')  # Verde scuro
+            self.style.configure("Rounded.TButton", background='#006400')  # Verde scuro
         else:
-            self.save_btn.configure(bg='#8b0000')  # Rosso scuro
+            self.style.configure("Rounded.TButton", background='#8b0000')  # Rosso scuro
 
     def import_line_placeholder(self):
         messagebox.showinfo("Info", "Funzione 'import line' in sviluppo")
