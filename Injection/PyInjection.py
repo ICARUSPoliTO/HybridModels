@@ -27,9 +27,20 @@ class Injector(object):
     def massflow(self, p1, p2, T, cD):
         # Isothermal fluid in the line (hypothesis)
         # p1 = Tank pressure[Pa], p2 = Chamber pressure[Pa], T = Tank temperature[K]
-        h1 = cp.PropsSI('H', 'P',p1,'T',T, self.fluid)
-        h2 = cp.PropsSI('H', 'P',p2,'T',T, self.fluid)
-        d2 = cp.PropsSI('D', 'P',p2,'T',T, self.fluid)
+        try:
+            h1 = cp.PropsSI('H', 'P',p1,'T',T, self.fluid)
+        except ValueError:
+            h1 = cp.PropsSI('H', 'T', T, 'Q', 0, self.fluid)
+
+        try:
+            h2 = cp.PropsSI('H', 'P', p2, 'T', T, self.fluid)
+        except ValueError:
+            h2 = cp.PropsSI('H', 'T', T, 'Q', 1, self.fluid)
+
+        try:
+            d2 = cp.PropsSI('D', 'P',p2,'T',T, self.fluid)
+        except ValueError:
+            d2 = cp.PropsSI('D', 'T', T, 'Q', 1, self.fluid)
 
         dSPI = cp.PropsSI('D', 'T',T, 'Q', 0, self.fluid)
 
@@ -46,7 +57,7 @@ class Injector(object):
                          /cp.PropsSI('CVMASS', 'P', p1, 'T', T, self.fluid))
                 R = 8314/(cp.PropsSI('MOLARMASS', 'P', p1, 'T', T, self.fluid)/1e-3)
 
-                mdot = p1/np.sqrt(R*T)
+                mdot = cD * p1/np.sqrt(R*T)
                 gammone = np.sqrt(gamma * (2 / (gamma + 1)) ** ((gamma + 1) / (gamma - 1)))
                 pe_pc_crit = (2 / (gamma + 1)) ** (gamma / (gamma - 1))
                 if (p2 / p1) < pe_pc_crit: # Is critical?
