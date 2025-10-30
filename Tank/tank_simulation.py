@@ -198,6 +198,7 @@ def full_tank_simulation(m, Q, T, oxidizer, pamb, pc, Ainj, CD, plim, Avent, CD_
     Q_vec       = np.zeros(output_size)
     sL_vec      = np.zeros(output_size)
     sV_vec      = np.zeros(output_size)
+    s_vec       = np.zeros(output_size)
     S_vec       = np.zeros(output_size)
 
     mdotL_vec[0] = mdotL
@@ -209,6 +210,7 @@ def full_tank_simulation(m, Q, T, oxidizer, pamb, pc, Ainj, CD, plim, Avent, CD_
     Q_vec[0] = Q
     sL_vec[0] = sL
     sV_vec[0] = sV
+    s_vec[0] = s
     S_vec[0] = S
 
     for idx_t in np.arange(1, np.size(time), 1):
@@ -251,6 +253,7 @@ def full_tank_simulation(m, Q, T, oxidizer, pamb, pc, Ainj, CD, plim, Avent, CD_
         Q_vec[idx_t]     = Q
         sL_vec[idx_t]    = sL
         sV_vec[idx_t]    = sV
+        s_vec[idx_t]     = s
         S_vec[idx_t]     = S
 
         if mdotL == 0:
@@ -265,35 +268,19 @@ def full_tank_simulation(m, Q, T, oxidizer, pamb, pc, Ainj, CD, plim, Avent, CD_
             Q_vec = Q_vec[0:idx_t + 1]
             sL_vec = sL_vec[0:idx_t + 1]
             sV_vec = sV_vec[0:idx_t + 1]
+            s_vec = s_vec[0:idx_t + 1]
             S_vec = S_vec[0:idx_t + 1]
             break
 
-        """
-        if Q == 1:
-            time = time[0:idx_t+1]
-            mdotL_vec = mdotL_vec[0:idx_t+1]
-            mdotV_vec = mdotV_vec[0:idx_t+1]
-            ptank_vec = ptank_vec[0:idx_t+1]
-            Ttank_vec = Ttank_vec[0:idx_t+1]
-            m_vec = m_vec[0:idx_t+1]
-            mL_vec = mL_vec[0:idx_t+1]
-            mV_vec = mV_vec[0:idx_t+1]
-            Q_vec = Q_vec[0:idx_t+1]
-            sL_vec = sL_vec[0:idx_t+1]
-            sV_vec = sV_vec[0:idx_t+1]
-            S_vec = S_vec[0:idx_t+1]
-            break
-        """
-
-    return time, mdotL_vec, mdotV_vec, ptank_vec, Ttank_vec, m_vec, mL_vec, mV_vec, Q_vec, sL_vec, sV_vec, S_vec
+    return time, mdotL_vec, mdotV_vec, ptank_vec, Ttank_vec, m_vec, mL_vec, mV_vec, Q_vec, sL_vec, sV_vec, s_vec, S_vec
 
 if __name__ == '__main__':
     m0 = 10 #[kg]
     T0 = 298 #[K]
-    oxidizer = {"OxidizerCP": "NitrousOxide"}
-    #Vtank = 18e-3 #[m^3]
+    #oxidizer = {"OxidizerCP": "NitrousOxide"}
+    oxidizer = {"OxidizerCP": "Oxygen"}
 
-    Q0 = 0.03
+    Q0 = 1
     p0 = 100e5 #[Pa]
 
     Dinj = 3.175e-3 #[m]
@@ -314,35 +301,66 @@ if __name__ == '__main__':
     endtime = 1000
 
     """
-    Vtank = create_tank(m0, Q0, T0, oxidizer)
-    ptank0, sL0, sV0, mL0, mV0, Q0, s0, S0 = starting_conditions(m0, T0, Vtank, oxidizer)
+    Vtank = create_tank(m, Q, T, oxidizer, p0)
+    ptank, sL, sV, mL, mV, Q, s, S = starting_conditions(m, T, Vtank, oxidizer)
 
-    m_new, mL_new, mV_new, Q_new, sL_new, sV_new, S_new, ptank_new, Ttank_new, mdotV = (
-        do_one_step(mdotL, ptank0, 1e5, T0, sL0, sV0, S0, m0, oxidizer, plim, Avent, 0.8, Vtank, dt))
+    inj = injection.Injector(oxidizer["OxidizerCP"])
 
-    print("Tank volume= "+str(Vtank*1e3)+" L")
-    print("Starting tank pressure= "+str(ptank0)+" Pa")
-    print("Starting temperature= "+str(T0)+" K")
-    print("Starting mass= "+str(m0)+" kg")
-    print("Starting liquid mass= "+str(mL0)+" kg")
-    print("Starting vapor mass= "+str(mV0)+" kg")
-    print("Starting quality= "+str(Q0))
-    print("Starting liquid specific entropy= "+str(sL0)+" J/kgK")
-    print("Starting vapor specific entropy= "+str(sV0)+" J/kgK")
-    print("Starting total entropy= "+str(S0)+" J/K")
-    print("########### after "+str(dt)+" seconds ###########")
-    print("New tank pressure= "+str(ptank_new)+" Pa")
-    print("New temperature= "+str(Ttank_new)+" K")
-    print("New mass= "+str(m_new)+" kg")
-    print("New liquid mass= "+str(mL_new)+" kg")
-    print("New vapor mass= "+str(mV_new)+" kg")
-    print("New quality= "+str(Q_new)+" kg")
-    print("New liquid specific entropy= " + str(sL_new) + " J/kgK")
-    print("New vapor specific entropy= " + str(sV_new) + " J/kgK")
-    print("New total entropy= " + str(S_new) + " J/K")
+    if Q < 0.99:
+        inj.massflow(ptank, pc, T, CD)
+        mdotL = inj.mdot * Ainj
+    else:
+        mdotL = Ainj * injection.gas_injection(ptank, pc, T, CD, oxidizer["OxidizerCP"])
+
+    if ptank > plim:
+        mdotV = Avent * injection.gas_injection(ptank, pamb, T, CD_vent, oxidizer["OxidizerCP"])
+    else:
+        mdotV = 0
+
+    print("Tank volume= " + str(Vtank * 1e3) + " L")
+    print("Starting tank pressure= " + str(ptank) + " Pa")
+    print("Starting temperature= " + str(T) + " K")
+    print("Starting mass= " + str(m) + " kg")
+    print("Starting liquid mass= " + str(mL) + " kg")
+    print("Starting vapor mass= " + str(mV) + " kg")
+    print("Starting liquid mass flow= "+str(mdotL)+" kg/s")
+    print("Starting vapor mass flow= " + str(mdotV) + " kg/s")
+    print("Starting quality= " + str(Q))
+    print("Starting liquid specific entropy= " + str(sL) + ' J/kgK')
+    print("Starting vapor specific entropy= " + str(sV) + ' J/kgK')
+    print("Starting total specific entropy= " + str(s) + ' J/kgK')
+    print("Starting total entropy= " + str(S) + ' J/K')
+    print("########### after " + str(dt) + " seconds ###########")
+    
+    m, mL, mV, Q, sL, sV, S, ptank, T= (
+            do_one_step(mdotL, mdotV, sL, sV, S, m, Q, oxidizer, Vtank, dt))
+
+        if Q < 0.99:
+            inj.massflow(ptank, pc, T, CD)
+            mdotL = inj.mdot * Ainj
+        else:
+            mdotL = Ainj * injection.gas_injection(ptank, pc, T, CD, oxidizer["OxidizerCP"])
+
+        if ptank > plim:
+            mdotV = Avent * injection.gas_injection(ptank, pamb, T, CD_vent, oxidizer["OxidizerCP"])
+        else:
+            mdotV = 0
+
+        print("Tank pressure= " + str(ptank) + " Pa")
+        print("Temperature= " + str(T) + " K")
+        print("Total mass= " + str(m) + " kg")
+        print("Liquid mass= " + str(mL) + " kg")
+        print("Vapor mass= " + str(mV) + " kg")
+        print("Liquid mass flow= " + str(mdotL) + " kg/s")
+        print("Vapor mass flow= " + str(mdotV) + " kg/s")
+        print("Quality= " + str(Q))
+        print("Liquid specific entropy= " + str(sL) + ' J/kgK')
+        print("Vapor specific entropy= " + str(sV) + ' J/kgK')
+        print("Total specific entropy= " + str(s) + ' J/kgK')
+        print("Total entropy= " + str(S) + ' J/K')
     """
 
-    time, mdotL_vec, mdotV_vec, ptank_vec, Ttank_vec, m_vec, mL_vec, mV_vec, Q_vec, sL_vec, sV_vec, S_vec = (
+    time, mdotL_vec, mdotV_vec, ptank_vec, Ttank_vec, m_vec, mL_vec, mV_vec, Q_vec, sL_vec, sV_vec, s_vec, S_vec = (
         full_tank_simulation(m0, Q0, T0, oxidizer, pamb, pc, Ainj, CD, plim, Avent, CD_vent, dt, endtime, p0))
 
 
@@ -416,6 +434,7 @@ if __name__ == '__main__':
     fig4, ax4_left = plt.subplots(figsize=(8, 4))
     ln_sL, = ax4_left.plot(time, sL_vec, color='tab:blue', label='Liquid specific entropy')
     ln_sV, = ax4_left.plot(time, sV_vec, color='tab:green', label='Vapor specific entropy')
+    ln_s, = ax4_left.plot(time, s_vec, color='tab:red', label='Total specific entropy')
     ax4_left.set_xlabel('time [s]')
     ax4_left.set_ylabel('s [J/kgK]', color='black')
     make_axes_black(ax4_left)
@@ -425,7 +444,7 @@ if __name__ == '__main__':
     ax4_right.set_ylabel('S [J/kg]', color='black')
     make_axes_black(ax4_right)
 
-    ax4_left.legend([ln_sL, ln_sV], ['Liquid specific entropy', 'Vapor specific entropy'], loc='upper left')
+    ax4_left.legend([ln_sL, ln_sV, ln_s], ['Liquid specific entropy', 'Vapor specific entropy', 'Total specific entropy'], loc='upper left')
     ax4_right.legend([ln_S], ['Total entropy'], loc='upper right')
     ax4_left.set_title('Specific and total entropy')
     fig4.tight_layout()
@@ -433,5 +452,3 @@ if __name__ == '__main__':
     plt.show()
     
     #"""
-
-
