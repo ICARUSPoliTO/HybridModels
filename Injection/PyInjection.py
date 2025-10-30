@@ -10,6 +10,38 @@ import matplotlib.pyplot as plt
 # Gregory G. Zilliac
 # NASA Ames Research Center, Mo et Field, CA 94035
 #
+def gas_injection(p1, p2, T, CD, fluid):
+    """
+    Ideal gas injection
+    :param p1: Injection pressure [Pa]
+    :param p2: Outer pressure [Pa]
+    :param T: Temperature [K]
+    :param CD: Discharge coefficient
+    :param fluid: Fluid name for coolprop
+    :return: mdot: Mass flow rate over injection area [kg/(s*m^2)]
+    """
+    if p1 > p2:
+        try:
+            gamma = (cp.PropsSI('CPMASS', 'T', T, 'Q', 1, fluid)
+                     /cp.PropsSI('CVMASS',  'T', T, 'Q', 1, fluid))
+        except ValueError:
+            gamma = (cp.PropsSI('CPMASS', 'T', T, 'P', p1, fluid)
+                     / cp.PropsSI('CVMASS', 'T', T, 'P', p1, fluid))
+
+        R = 8314/(cp.PropsSI('MOLARMASS', fluid)/1e-3)
+
+        mdot = CD * p1/np.sqrt(R*T)
+        gammone = np.sqrt(gamma * (2 / (gamma + 1)) ** ((gamma + 1) / (gamma - 1)))
+        pe_pc_crit = (2 / (gamma + 1)) ** (gamma / (gamma - 1))
+        if (p2 / p1) < pe_pc_crit: # Is critical?
+            mdot = mdot * gammone
+        else:
+            mdot= mdot * np.sqrt((2 * gamma) * ((p2 / p1) ** (2 / gamma) - (p2 / p1) ** ((gamma + 1) / gamma)) / (gamma - 1))
+    else:
+        mdot = 0
+
+    return mdot
+
 
 class Injector(object):
     def __init__(self, fluid):
