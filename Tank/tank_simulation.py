@@ -171,6 +171,7 @@ def full_tank_simulation(m, Q, T, oxidizer, pamb, pc, Ainj, CD, plim, Avent, CD_
     else:
         mdotV = 0
 
+    """
     print("Tank volume= " + str(Vtank * 1e3) + " L")
     print("Starting tank pressure= " + str(ptank) + " Pa")
     print("Starting temperature= " + str(T) + " K")
@@ -185,6 +186,7 @@ def full_tank_simulation(m, Q, T, oxidizer, pamb, pc, Ainj, CD, plim, Avent, CD_
     print("Starting total specific entropy= " + str(s) + ' J/kgK')
     print("Starting total entropy= " + str(S) + ' J/K')
     print("########### after " + str(dt) + " seconds ###########")
+    """
 
     time = np.arange(0, endtime, dt)
     output_size = np.size(time)
@@ -228,6 +230,7 @@ def full_tank_simulation(m, Q, T, oxidizer, pamb, pc, Ainj, CD, plim, Avent, CD_
         else:
             mdotV = 0
 
+        """
         print("Time= "+str(time[idx_t]) + " s")
         print("Tank pressure= " + str(ptank) + " Pa")
         print("Temperature= " + str(T) + " K")
@@ -242,6 +245,7 @@ def full_tank_simulation(m, Q, T, oxidizer, pamb, pc, Ainj, CD, plim, Avent, CD_
         print("Total specific entropy= " + str(s) + ' J/kgK')
         print("Total entropy= " + str(S) + ' J/K')
         print("########### after " + str(dt) + " seconds ###########")
+        """
 
         mdotL_vec[idx_t] = mdotL
         mdotV_vec[idx_t] = mdotV
