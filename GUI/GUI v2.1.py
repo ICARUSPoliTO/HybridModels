@@ -363,7 +363,15 @@ class HybridRocketGUI:
             
             self.dropdown_frame.geometry(f"150x{frame_height}+{x}+{frame_y}")
 
-            # Buttons are now created in the geometry calculation section above
+            tk.Button(self.dropdown_frame, text="Save", font=('Arial', 10),
+                      bg=self.bg_light, command=self.save_config,
+                      relief=tk.FLAT, anchor='w', highlightthickness=0, bd=0).pack(fill=tk.X, pady=2, padx=2)
+            tk.Button(self.dropdown_frame, text="Save As", font=('Arial', 10),
+                      bg=self.bg_light, command=self.save_config_as,
+                      relief=tk.FLAT, anchor='w', highlightthickness=0, bd=0).pack(fill=tk.X, pady=2, padx=2)
+            tk.Button(self.dropdown_frame, text="Open", font=('Arial', 10),
+                      bg=self.bg_light, command=self.open_config,
+                      relief=tk.FLAT, anchor='w', highlightthickness=0, bd=0).pack(fill=tk.X, pady=2, padx=2)
 
             self.dropdown_frame.bind("<FocusOut>", lambda e: self.toggle_menu())
             self.root.bind("<Button-1>", self.close_dropdown_on_click)
