@@ -20,10 +20,13 @@ class HybridRocketGUI:
         self.root.title("hybrid model")
         self.root.geometry("1400x900")
         self.root.configure(bg='#2b2b2b')
-        self.search_popup_active = False  # Track if search popup is open
+        self.search_popup_active = False
 
         # Maximize the window
-        self.root.state('zoomed')
+        try:
+            self.root.state('zoomed')
+        except:
+            pass
 
         # Colors
         self.bg_dark = '#2b2b2b'
@@ -38,6 +41,11 @@ class HybridRocketGUI:
         self.inputs = {}
         self.dropdowns = {}
         self.current_page = 'configuration'
+
+        # Variables for multi-fuel selection
+        self.selected_fuels = []
+        self.fuel_weight_entries = {}
+        self.dropdown_frame = None
 
         # Load reactant lists
         self.load_reactant_lists()
@@ -68,17 +76,15 @@ class HybridRocketGUI:
 
     def load_reactant_lists(self):
         """Load reactant lists from CEA_reactants.txt and CoolProp"""
-        # Load CEA reactants from file
         self.cea_reactants = []
         try:
             with open("CEA_reactants.txt", "r", encoding="utf-8") as f:
                 self.cea_reactants = [line.strip() for line in f.readlines() if line.strip()]
             self.cea_reactants.sort()
         except FileNotFoundError:
-            messagebox.showwarning("Warning", "CEA_reactants.txt not found. Using empty reactant list.")
+            print("Warning: CEA_reactants.txt not found. Using empty reactant list.")
             self.cea_reactants = []
 
-        # Easy access lists for common oxidizers and fuels
         self.easy_cea_ox_list = ["Air", "CL2", "CL2(L)", "F2", "F2(L)", "H2O2(L)",
                                  "N2H4(L)", "N2O", "NH4NO3(I)", "O2", "O2(L)",
                                  "Select other options", "Custom with exploded formula"]
@@ -86,16 +92,14 @@ class HybridRocketGUI:
         self.easy_cea_fuel_list = ["CH4", "CH4(L)", "H2", "H2(L)", "RP-1", "paraffin",
                                    "Select other options", "Custom with exploded formula"]
 
-        # CoolProp fluids list
         if COOLPROP_AVAILABLE:
             self.coolprop_fluids = cp.FluidsList()
         else:
-            # Fallback list of common fluids
             self.coolprop_fluids = ["NitrousOxide", "Oxygen", "Nitrogen", "Water",
                                     "CarbonDioxide", "Methane", "Hydrogen"]
 
     def explode_formula(self, formula):
-        """Convert chemical formula to expanded format (e.g., H2O2 -> H 2 O 2)"""
+        """Convert chemical formula to expanded format"""
         formula = formula.replace(" ", "")
         exploded_formula = ""
         prec = "1"
@@ -107,42 +111,38 @@ class HybridRocketGUI:
                 else:
                     exploded_formula = exploded_formula + " " + "1" + " " + char
                 prec = char
-
             elif char.islower() and char.isalpha():
                 if prec.isupper() and prec.isalpha():
                     exploded_formula = exploded_formula + char
                 prec = char
-
             elif char.isdigit():
                 if prec.isalpha():
                     exploded_formula = exploded_formula + " " + char
                 elif prec.isdigit():
                     exploded_formula = exploded_formula + char
                 prec = char
-
             if i == (len(formula) - 1) and char.isalpha():
                 exploded_formula = exploded_formula + " " + "1"
 
         exploded_formula = exploded_formula.strip()
         return exploded_formula
 
-    def show_search_popup(self, title, reactant_list, callback):
-        """Show popup window with search functionality for reactant selection"""
-        self.search_popup_active = True  # Track popup state
+    def show_search_popup(self, title, reactant_list, callback, multi_select=False):
+        """Show popup window with search functionality"""
+        self.search_popup_active = True
         popup = tk.Toplevel(self.root)
         popup.title(title)
         popup.geometry("500x600")
         popup.configure(bg=self.bg_medium)
         popup.transient(self.root)
         popup.grab_set()
-        
-        # Bind the popup destruction to update the tracking state
+
         def on_popup_close():
             self.search_popup_active = False
             popup.destroy()
+
         popup.protocol("WM_DELETE_WINDOW", on_popup_close)
 
-        # Search frame
         search_frame = tk.Frame(popup, bg=self.bg_medium)
         search_frame.pack(fill=tk.X, padx=20, pady=20)
 
@@ -154,23 +154,21 @@ class HybridRocketGUI:
                                 font=('Arial', 11), width=30)
         search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
-        # Listbox with scrollbar
         list_frame = tk.Frame(popup, bg=self.bg_medium)
         list_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
 
         scrollbar = tk.Scrollbar(list_frame)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
+        selectmode = tk.MULTIPLE if multi_select else tk.SINGLE
         listbox = tk.Listbox(list_frame, yscrollcommand=scrollbar.set,
-                             font=('Arial', 10), height=20)
+                             font=('Arial', 10), height=20, selectmode=selectmode)
         listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.config(command=listbox.yview)
 
-        # Populate listbox
         def update_listbox(*args):
             search_term = search_var.get().lower()
             listbox.delete(0, tk.END)
-
             filtered = [item for item in reactant_list if search_term in item.lower()]
             for item in filtered:
                 listbox.insert(tk.END, item)
@@ -178,21 +176,27 @@ class HybridRocketGUI:
         search_var.trace('w', update_listbox)
         update_listbox()
 
-        # Select button
         def on_select():
             selection = listbox.curselection()
             if selection:
-                selected_item = listbox.get(selection[0])
-                self.search_popup_active = False
-                callback(selected_item)
-                popup.destroy()
+                if multi_select:
+                    selected_items = [listbox.get(i) for i in selection]
+                    self.search_popup_active = False
+                    callback(selected_items)
+                    popup.destroy()
+                else:
+                    selected_item = listbox.get(selection[0])
+                    self.search_popup_active = False
+                    callback(selected_item)
+                    popup.destroy()
             else:
-                messagebox.showwarning("No Selection", "Please select an item.")        
+                messagebox.showwarning("No Selection", "Please select an item.")
+
         select_btn = ttk.Button(popup, text="Select", style="Rounded.TButton", command=on_select)
         select_btn.pack(pady=(0, 20))
 
-        # Allow double-click to select
-        listbox.bind('<Double-Button-1>', lambda e: on_select())
+        if not multi_select:
+            listbox.bind('<Double-Button-1>', lambda e: on_select())
 
     def show_custom_formula_popup(self, callback):
         """Show popup for custom chemical formula input"""
@@ -205,7 +209,6 @@ class HybridRocketGUI:
 
         entries = {}
 
-        # Chemical name
         row = tk.Frame(popup, bg=self.bg_medium)
         row.pack(fill=tk.X, padx=20, pady=10)
         tk.Label(row, text="Chemical Name:", font=('Arial', 11),
@@ -213,7 +216,6 @@ class HybridRocketGUI:
         entries['name'] = tk.Entry(row, font=('Arial', 11), width=25)
         entries['name'].pack(side=tk.LEFT, padx=10)
 
-        # Formula
         row = tk.Frame(popup, bg=self.bg_medium)
         row.pack(fill=tk.X, padx=20, pady=10)
         tk.Label(row, text="Formula (e.g., H2O2):", font=('Arial', 11),
@@ -221,7 +223,6 @@ class HybridRocketGUI:
         entries['formula'] = tk.Entry(row, font=('Arial', 11), width=25)
         entries['formula'].pack(side=tk.LEFT, padx=10)
 
-        # Temperature
         row = tk.Frame(popup, bg=self.bg_medium)
         row.pack(fill=tk.X, padx=20, pady=10)
         tk.Label(row, text="Temperature [K]:", font=('Arial', 11),
@@ -229,7 +230,6 @@ class HybridRocketGUI:
         entries['temp'] = tk.Entry(row, font=('Arial', 11), width=25)
         entries['temp'].pack(side=tk.LEFT, padx=10)
 
-        # Enthalpy
         row = tk.Frame(popup, bg=self.bg_medium)
         row.pack(fill=tk.X, padx=20, pady=10)
         tk.Label(row, text="Specific Enthalpy [kJ/mol]:", font=('Arial', 11),
@@ -247,7 +247,6 @@ class HybridRocketGUI:
             temp = entries['temp'].get().strip()
             enthalpy = entries['enthalpy'].get().strip()
 
-            # Validation
             if not name:
                 error_label.config(text="Please enter a chemical name")
                 return
@@ -270,7 +269,6 @@ class HybridRocketGUI:
                 error_label.config(text="Invalid enthalpy value")
                 return
 
-            # Explode formula
             try:
                 exploded = self.explode_formula(formula)
             except Exception as e:
@@ -285,6 +283,69 @@ class HybridRocketGUI:
                 'enthalpy': enthalpy_val
             }
             callback(result)
+            popup.destroy()
+
+        confirm_btn = ttk.Button(popup, text="Confirm", style="Rounded.TButton",
+                                 command=on_confirm)
+        confirm_btn.pack(pady=20)
+
+    def show_fuel_weight_popup(self, fuels):
+        """Show popup for entering weight percentages"""
+        popup = tk.Toplevel(self.root)
+        popup.title("Enter Fuel Weight Percentages")
+        popup.geometry("500x400")
+        popup.configure(bg=self.bg_medium)
+        popup.transient(self.root)
+        popup.grab_set()
+
+        tk.Label(popup, text="Enter weight percentage for each fuel:",
+                 font=('Arial', 12, 'bold'), bg=self.bg_medium,
+                 fg=self.text_color).pack(pady=20)
+
+        entries = {}
+        for fuel in fuels:
+            row = tk.Frame(popup, bg=self.bg_medium)
+            row.pack(fill=tk.X, padx=40, pady=5)
+
+            tk.Label(row, text=f"{fuel}:", font=('Arial', 11),
+                     bg=self.bg_medium, fg=self.text_color, width=20, anchor='w').pack(side=tk.LEFT)
+            entry = tk.Entry(row, font=('Arial', 11), width=15)
+            entry.pack(side=tk.LEFT, padx=10)
+            tk.Label(row, text="%", font=('Arial', 11),
+                     bg=self.bg_medium, fg=self.text_color).pack(side=tk.LEFT)
+            entries[fuel] = entry
+
+        error_label = tk.Label(popup, text="", font=('Arial', 10),
+                               bg=self.bg_medium, fg='red')
+        error_label.pack(pady=10)
+
+        def on_confirm():
+            weights = {}
+            total = 0
+
+            for fuel, entry in entries.items():
+                value = entry.get().strip()
+                if not value:
+                    error_label.config(text=f"Please enter weight for {fuel}")
+                    return
+                try:
+                    weight = float(value)
+                    if weight <= 0:
+                        error_label.config(text=f"Weight for {fuel} must be > 0")
+                        return
+                    weights[fuel] = weight
+                    total += weight
+                except ValueError:
+                    error_label.config(text=f"Invalid weight for {fuel}")
+                    return
+
+            if abs(total - 100) > 0.01:
+                messagebox.showwarning("Invalid Total",
+                                       f"Total weight percentage must equal 100%\nCurrent total: {total:.2f}%\n\nPlease adjust the values.")
+                return
+
+            self.fuel_weight_entries = weights
+            self.update_fuel_display()
             popup.destroy()
 
         confirm_btn = ttk.Button(popup, text="Confirm", style="Rounded.TButton",
@@ -324,46 +385,39 @@ class HybridRocketGUI:
             self.page_buttons[page] = btn
 
     def toggle_menu(self):
-        if hasattr(self, 'dropdown_frame') and self.dropdown_frame:
+        if hasattr(self, 'dropdown_frame') and self.dropdown_frame and self.dropdown_frame.winfo_exists():
             self.dropdown_frame.destroy()
             self.dropdown_frame = None
         else:
-            x = self.menu_button.winfo_rootx() + self.menu_button.winfo_width()
-            y = self.menu_button.winfo_rooty() + self.menu_button.winfo_height()  # Position below the button
-            
-            # Create dropdown frame
+            x = self.menu_button.winfo_rootx()
+            y = self.menu_button.winfo_rooty() + self.menu_button.winfo_height()
+            button_width = self.menu_button.winfo_width()
+
             self.dropdown_frame = tk.Toplevel(self.root)
             self.dropdown_frame.overrideredirect(True)
-            
-            # Configure the frame first
             self.dropdown_frame.configure(bg=self.bg_active)
-            
-            # Create and pack the buttons to get their required height
-            save_btn = tk.Button(self.dropdown_frame, text="Save", font=('Arial', 10),
-                      bg=self.bg_light, command=self.save_config,
-                      relief=tk.FLAT, anchor='w', highlightthickness=0, bd=0)
-            save_btn.pack(fill=tk.X, pady=2, padx=2)
-            
-            save_as_btn = tk.Button(self.dropdown_frame, text="Save As", font=('Arial', 10),
-                      bg=self.bg_light, command=self.save_config_as,
-                      relief=tk.FLAT, anchor='w', highlightthickness=0, bd=0)
-            save_as_btn.pack(fill=tk.X, pady=2, padx=2)
-            
-            open_btn = tk.Button(self.dropdown_frame, text="Open", font=('Arial', 10),
-                      bg=self.bg_light, command=self.open_config,
-                      relief=tk.FLAT, anchor='w', highlightthickness=0, bd=0)
-            open_btn.pack(fill=tk.X, pady=2, padx=2)
-            
-            # Update idletasks to make sure the frame has its true size
-            self.dropdown_frame.update_idletasks()
-            
-            # Now position the frame above the button
-            frame_height = self.dropdown_frame.winfo_height()
-            frame_y = y - frame_height - self.menu_button.winfo_height()  # Position above the button
-            
-            self.dropdown_frame.geometry(f"150x{frame_height}+{x}+{frame_y}")
 
-            # Buttons are now created in the geometry calculation section above
+            save_btn = tk.Button(self.dropdown_frame, text="Save", font=('Arial', 10),
+                                 bg=self.bg_light, command=self.save_config,
+                                 relief=tk.FLAT, anchor='w', highlightthickness=0, bd=0)
+            save_btn.pack(fill=tk.X, pady=2, padx=2)
+
+            save_as_btn = tk.Button(self.dropdown_frame, text="Save As", font=('Arial', 10),
+                                    bg=self.bg_light, command=self.save_config_as,
+                                    relief=tk.FLAT, anchor='w', highlightthickness=0, bd=0)
+            save_as_btn.pack(fill=tk.X, pady=2, padx=2)
+
+            open_btn = tk.Button(self.dropdown_frame, text="Open", font=('Arial', 10),
+                                 bg=self.bg_light, command=self.open_config,
+                                 relief=tk.FLAT, anchor='w', highlightthickness=0, bd=0)
+            open_btn.pack(fill=tk.X, pady=2, padx=2)
+
+            self.dropdown_frame.update_idletasks()
+
+            frame_width = self.dropdown_frame.winfo_width()
+            centered_x = x + (button_width - frame_width) // 2
+
+            self.dropdown_frame.geometry(f"+{centered_x}+{y}")
 
             self.dropdown_frame.bind("<FocusOut>", lambda e: self.toggle_menu())
             self.root.bind("<Button-1>", self.close_dropdown_on_click)
@@ -382,6 +436,8 @@ class HybridRocketGUI:
 
         if page == 'configuration':
             self.show_configuration_page()
+        elif page == 'optimization':
+            self.show_optimization_page()
         else:
             label = tk.Label(self.content_frame, text=f"{page.upper()} - Coming soon",
                              font=('Arial', 20), bg=self.bg_dark, fg=self.text_color)
@@ -423,24 +479,65 @@ class HybridRocketGUI:
         self.validate_inputs()
 
         def _on_mousewheel(event):
-            # Check if a combobox dropdown or search popup is active
             if hasattr(self, 'search_popup_active') and self.search_popup_active:
-                # Don't scroll the main canvas when search popup is open
                 return
 
-            # Get the widget that triggered the event
             widget = event.widget
             while widget is not None:
-                # Check if we're in a Combobox dropdown
                 if isinstance(widget, tk.Listbox):
                     parent = widget.master
                     if parent and parent.master and parent.master.winfo_class() == 'TCombobox':
-                        # We're in a Combobox listbox, let it handle its own scrolling
                         return
-                # Move up the widget hierarchy
                 widget = widget.master
 
-            # If we're not in a Combobox dropdown or search popup, scroll the main canvas
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+    def show_optimization_page(self):
+        canvas = tk.Canvas(self.content_frame, bg=self.bg_dark, highlightthickness=0)
+        scrollbar = tk.Scrollbar(self.content_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg=self.bg_dark)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        title = tk.Label(scrollable_frame, text="optimization",
+                         font=('Arial', 28, 'bold'), bg=self.bg_dark, fg=self.text_color)
+        title.pack(pady=(0, 20))
+
+        self.create_optimization_section(scrollable_frame)
+
+        save_button_frame = tk.Frame(scrollable_frame, bg=self.bg_dark)
+        save_button_frame.pack(fill=tk.X, pady=(20, 0))
+
+        save_btn = ttk.Button(save_button_frame, text="Save Optimization",
+                              style="Rounded.TButton",
+                              command=self.validate_and_save_optimization)
+        save_btn.pack(pady=10)
+
+        self.validate_inputs()
+
+        def _on_mousewheel(event):
+            if hasattr(self, 'search_popup_active') and self.search_popup_active:
+                return
+
+            widget = event.widget
+            while widget is not None:
+                if isinstance(widget, tk.Listbox):
+                    parent = widget.master
+                    if parent and parent.master and parent.master.winfo_class() == 'TCombobox':
+                        return
+                widget = widget.master
+
             canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
         canvas.bind_all("<MouseWheel>", _on_mousewheel)
@@ -461,6 +558,30 @@ class HybridRocketGUI:
                                 command=self.import_line_placeholder)
         import_btn.pack(side=tk.LEFT, padx=(20, 0))
 
+    def update_fuel_display(self):
+        """Update fuel display with selected fuels and weights"""
+        if not hasattr(self, 'fuel_display_frame'):
+            return
+
+        for widget in self.fuel_display_frame.winfo_children():
+            widget.destroy()
+
+        if not self.selected_fuels:
+            return
+
+        for fuel in self.selected_fuels:
+            row = tk.Frame(self.fuel_display_frame, bg=self.bg_light)
+            row.pack(fill=tk.X, pady=2)
+
+            weight = self.fuel_weight_entries.get(fuel, 0)
+            text = f"  • {fuel}: {weight}%"
+
+            label = tk.Label(row, text=text, font=('Arial', 10),
+                             bg=self.bg_light, fg='black', anchor='w')
+            label.pack(side=tk.LEFT, padx=(20, 0))
+
+        self.validate_inputs()
+
     def create_fuel_oxidiser_section(self, parent):
         section = tk.Frame(parent, bg=self.bg_light, relief=tk.RIDGE, bd=2)
         section.pack(fill=tk.X, pady=10, ipady=15)
@@ -475,20 +596,15 @@ class HybridRocketGUI:
         fields_frame = tk.Frame(section, bg=self.bg_light)
         fields_frame.pack(fill=tk.X, padx=40, pady=10)
 
-        # Oxidizer fields
         self.create_oxidizer_fields(fields_frame)
-
-        # Fuel fields
         self.create_fuel_fields(fields_frame)
 
-        # Regression rate parameters
         self.create_float_field(fields_frame, "Fuel & Oxidiser", "a", "a", min_value=0, exclusive=True)
         self.create_float_field(fields_frame, "Fuel & Oxidiser", "n", "n")
         self.create_float_field(fields_frame, "Fuel & Oxidiser", "rho.fuel", "ρF (kg/m³)",
                                 min_value=0, exclusive=True)
 
     def create_oxidizer_fields(self, parent):
-        # Main oxidizer dropdown
         row = tk.Frame(parent, bg=self.bg_light)
         row.pack(fill=tk.X, pady=5)
 
@@ -503,7 +619,6 @@ class HybridRocketGUI:
 
         self.dropdowns["Fuel & Oxidiser_Oxidizer"] = combo
 
-        # Weight fraction (unchangeable for single-fluid)
         row = tk.Frame(parent, bg=self.bg_light)
         row.pack(fill=tk.X, pady=5)
 
@@ -519,7 +634,6 @@ class HybridRocketGUI:
 
         self.inputs["Fuel & Oxidiser_Oxidizer_WeightFraction"] = entry
 
-        # Container for dynamic fields
         self.oxidizer_dynamic_frame = tk.Frame(parent, bg=self.bg_light)
         self.oxidizer_dynamic_frame.pack(fill=tk.X)
 
@@ -539,25 +653,18 @@ class HybridRocketGUI:
 
         elif oxidizer == "Custom with exploded formula":
             def callback(result):
-                # Store custom oxidizer data
                 self.inputs["Fuel & Oxidiser_Oxidizer_CustomName"] = result['name']
                 self.inputs["Fuel & Oxidiser_Oxidizer_ExpandedFormula"] = result['exploded_formula']
-
-                # Update display
                 self.dropdowns["Fuel & Oxidiser_Oxidizer"].set(f"Custom: {result['name']}")
-
-                # Create dynamic fields with pre-filled values
                 self.create_oxidizer_dynamic_fields(result['temperature'], result['enthalpy'])
 
             self.show_custom_formula_popup(callback)
             return
 
-        # Standard selection - create dynamic fields
         self.create_oxidizer_dynamic_fields()
 
     def create_oxidizer_dynamic_fields(self, temp_default=None, enthalpy_default=None):
         """Create temperature and enthalpy fields for oxidizer"""
-        # Temperature field
         row = tk.Frame(self.oxidizer_dynamic_frame, bg=self.bg_light)
         row.pack(fill=tk.X, pady=5)
 
@@ -575,7 +682,6 @@ class HybridRocketGUI:
 
         self.inputs["Fuel & Oxidiser_Oxidizer_Temperature"] = entry
 
-        # Specific Enthalpy field
         row = tk.Frame(self.oxidizer_dynamic_frame, bg=self.bg_light)
         row.pack(fill=tk.X, pady=5)
 
@@ -596,7 +702,6 @@ class HybridRocketGUI:
         self.validate_inputs()
 
     def create_fuel_fields(self, parent):
-        # Main fuel dropdown
         row = tk.Frame(parent, bg=self.bg_light)
         row.pack(fill=tk.X, pady=5)
 
@@ -604,68 +709,73 @@ class HybridRocketGUI:
                          bg=self.bg_light, fg='black', width=25, anchor='w')
         label.pack(side=tk.LEFT, padx=(0, 10))
 
-        combo = ttk.Combobox(row, font=('Arial', 11), width=28,
-                             values=self.easy_cea_fuel_list, state='readonly')
-        combo.pack(side=tk.LEFT)
-        combo.bind('<<ComboboxSelected>>', lambda e: self.on_fuel_change())
+        select_btn = ttk.Button(row, text="Select Fuels", style="Rounded.TButton",
+                                command=self.on_fuel_select_click)
+        select_btn.pack(side=tk.LEFT)
 
-        self.dropdowns["Fuel & Oxidiser_Fuel"] = combo
+        self.fuel_display_frame = tk.Frame(parent, bg=self.bg_light)
+        self.fuel_display_frame.pack(fill=tk.X, pady=5)
 
-        # Weight fraction
-        row = tk.Frame(parent, bg=self.bg_light)
-        row.pack(fill=tk.X, pady=5)
-
-        label = tk.Label(row, text="Fuel Weight fraction:", font=('Arial', 11),
-                         bg=self.bg_light, fg='black', width=25, anchor='w')
-        label.pack(side=tk.LEFT, padx=(0, 10))
-
-        entry = tk.Entry(row, font=('Arial', 11), width=30, relief=tk.SUNKEN, bd=2,
-                         highlightthickness=2, highlightbackground=self.bg_light,
-                         highlightcolor=self.bg_light)
-        entry.pack(side=tk.LEFT)
-        entry.bind('<KeyRelease>', lambda e: self.validate_fuel_weight_fraction())
-
-        self.inputs["Fuel & Oxidiser_Fuel_WeightFraction"] = entry
-
-        # Container for dynamic fuel fields
         self.fuel_dynamic_frame = tk.Frame(parent, bg=self.bg_light)
         self.fuel_dynamic_frame.pack(fill=tk.X)
 
-    def on_fuel_change(self):
-        for widget in self.fuel_dynamic_frame.winfo_children():
-            widget.destroy()
+    def on_fuel_select_click(self):
+        """Handle fuel selection button click"""
 
-        fuel = self.dropdowns["Fuel & Oxidiser_Fuel"].get()
+        def callback(selected_fuels):
+            if "Select other options" in selected_fuels:
+                def full_list_callback(full_selected):
+                    self.handle_fuel_selection(full_selected)
 
-        if fuel == "Select other options":
-            def callback(selected):
-                self.dropdowns["Fuel & Oxidiser_Fuel"].set(selected)
-                self.on_fuel_change()
+                self.show_search_popup("Select Fuels", self.cea_reactants,
+                                       full_list_callback, multi_select=True)
+                return
 
-            self.show_search_popup("Select Fuel", self.cea_reactants, callback)
+            if "Custom with exploded formula" in selected_fuels:
+                def custom_callback(result):
+                    self.selected_fuels = [f"Custom: {result['name']}"]
+                    self.inputs["Fuel & Oxidiser_Fuel_CustomName"] = result['name']
+                    self.inputs["Fuel & Oxidiser_Fuel_ExpandedFormula"] = result['exploded_formula']
+
+                    self.fuel_weight_entries = {f"Custom: {result['name']}": 100.0}
+                    self.update_fuel_display()
+                    self.create_fuel_dynamic_fields(result['temperature'], result['enthalpy'])
+
+                self.show_custom_formula_popup(custom_callback)
+                return
+
+            self.handle_fuel_selection(selected_fuels)
+
+        self.show_search_popup("Select Fuels", self.easy_cea_fuel_list,
+                               callback, multi_select=True)
+
+    def handle_fuel_selection(self, selected_fuels):
+        """Process selected fuels and prompt for weights"""
+        if not selected_fuels:
             return
 
-        elif fuel == "Custom with exploded formula":
-            def callback(result):
-                self.inputs["Fuel & Oxidiser_Fuel_CustomName"] = result['name']
-                self.inputs["Fuel & Oxidiser_Fuel_ExpandedFormula"] = result['exploded_formula']
-
-                self.dropdowns["Fuel & Oxidiser_Fuel"].set(f"Custom: {result['name']}")
-
-                self.create_fuel_dynamic_fields(result['temperature'], result['enthalpy'])
-
-            self.show_custom_formula_popup(callback)
-            return
-
-        # Handle special case for paraffin
-        if fuel == "paraffin":
+        if len(selected_fuels) == 1 and selected_fuels[0] == "paraffin":
+            self.selected_fuels = selected_fuels
+            self.fuel_weight_entries = {"paraffin": 100.0}
+            self.update_fuel_display()
             self.create_fuel_dynamic_fields(533.0, -1860.6)
-        else:
+            return
+
+        if len(selected_fuels) == 1:
+            self.selected_fuels = selected_fuels
+            self.fuel_weight_entries = {selected_fuels[0]: 100.0}
+            self.update_fuel_display()
             self.create_fuel_dynamic_fields()
+            return
+
+        self.selected_fuels = selected_fuels
+        self.show_fuel_weight_popup(selected_fuels)
 
     def create_fuel_dynamic_fields(self, temp_default=None, enthalpy_default=None):
         """Create temperature and enthalpy fields for fuel"""
-        # Temperature field
+        for widget in self.fuel_dynamic_frame.winfo_children():
+            widget.destroy()
+
         row = tk.Frame(self.fuel_dynamic_frame, bg=self.bg_light)
         row.pack(fill=tk.X, pady=5)
 
@@ -683,7 +793,6 @@ class HybridRocketGUI:
 
         self.inputs["Fuel & Oxidiser_Fuel_Temperature"] = entry
 
-        # Specific Enthalpy field
         row = tk.Frame(self.fuel_dynamic_frame, bg=self.bg_light)
         row.pack(fill=tk.X, pady=5)
 
@@ -700,26 +809,6 @@ class HybridRocketGUI:
         entry.bind('<KeyRelease>', lambda e: self.validate_single_input(entry))
 
         self.inputs["Fuel & Oxidiser_Fuel_SpecificEnthalpy"] = entry
-
-        self.validate_inputs()
-
-    def validate_fuel_weight_fraction(self):
-        entry = self.inputs["Fuel & Oxidiser_Fuel_WeightFraction"]
-        value = entry.get().strip()
-
-        is_valid = False
-        if value:
-            try:
-                fractions = [float(x.strip()) for x in value.split(',')]
-                if all(f > 0 for f in fractions) and abs(sum(fractions) - 100) < 0.01:
-                    is_valid = True
-            except ValueError:
-                pass
-
-        if is_valid:
-            entry.configure(highlightbackground='#00aa00', highlightcolor='#00aa00')
-        else:
-            entry.configure(highlightbackground='red', highlightcolor='red')
 
         self.validate_inputs()
 
@@ -798,6 +887,42 @@ class HybridRocketGUI:
 
         self.validate_inputs()
 
+    def create_optimization_section(self, parent):
+        """Create the Optimization section"""
+        section = tk.Frame(parent, bg=self.bg_light, relief=tk.RIDGE, bd=2)
+        section.pack(fill=tk.X, pady=10, ipady=15)
+
+        header_frame = tk.Frame(section, bg=self.bg_light)
+        header_frame.pack(fill=tk.X, padx=20, pady=(10, 5))
+
+        section_title = tk.Label(header_frame, text="Optimization", font=('Arial', 16),
+                                 bg=self.bg_light, fg='black')
+        section_title.pack(side=tk.LEFT)
+
+        fields_frame = tk.Frame(section, bg=self.bg_light)
+        fields_frame.pack(fill=tk.X, padx=40, pady=10)
+
+        self.create_int_field(fields_frame, "Optimization", "parameter_points",
+                              "parameter_points", min_value=0, exclusive=True)
+        self.create_float_field(fields_frame, "Optimization", "Dport-Dt.min",
+                                "Dport-Dt.min", min_value=0, exclusive=True)
+        self.create_float_field(fields_frame, "Optimization", "Dport-Dt.max",
+                                "Dport-Dt.max", min_value=0, exclusive=True)
+        self.create_float_field(fields_frame, "Optimization", "Dinj-Dt.min",
+                                "Dinj-Dt.min", min_value=0, exclusive=True)
+        self.create_float_field(fields_frame, "Optimization", "Dinj-Dt.max",
+                                "Dinj-Dt.max", min_value=0, exclusive=True)
+        self.create_float_field(fields_frame, "Optimization", "Lc-Dt.min",
+                                "Lc-Dt.min", min_value=0, exclusive=True)
+        self.create_float_field(fields_frame, "Optimization", "Lc-Dt.max",
+                                "Lc-Dt.max", min_value=0, exclusive=True)
+        self.create_float_field(fields_frame, "Optimization", "ptank",
+                                "(Ptank) ptank [Pa]", min_value=0, exclusive=True)
+        self.create_float_field(fields_frame, "Optimization", "Ttank",
+                                "(Ttank) Ttank [K]", min_value=0, exclusive=True)
+        self.create_float_field(fields_frame, "Optimization", "pamb",
+                                "(Pamb) pamb [Pa]", min_value=0, exclusive=True)
+
     def create_float_field(self, parent, section, var_name, display_name, min_value=None,
                            max_value=None, exclusive=False):
         row = tk.Frame(parent, bg=self.bg_light)
@@ -822,13 +947,38 @@ class HybridRocketGUI:
 
         self.inputs[f"{section}_{var_name}"] = entry
 
+    def create_int_field(self, parent, section, var_name, display_name, min_value=None,
+                         max_value=None, exclusive=False):
+        """Create an integer input field"""
+        row = tk.Frame(parent, bg=self.bg_light)
+        row.pack(fill=tk.X, pady=5)
+
+        label = tk.Label(row, text=display_name + ":", font=('Arial', 11),
+                         bg=self.bg_light, fg='black', width=25, anchor='w')
+        label.pack(side=tk.LEFT, padx=(0, 10))
+
+        entry = tk.Entry(row, font=('Arial', 11), width=30, relief=tk.SUNKEN, bd=2,
+                         highlightthickness=2, highlightbackground=self.bg_light,
+                         highlightcolor=self.bg_light)
+        entry.pack(side=tk.LEFT)
+
+        entry.validation_params = {
+            'min_value': min_value,
+            'max_value': max_value,
+            'exclusive': exclusive,
+            'is_int': True
+        }
+
+        entry.bind('<KeyRelease>', lambda e: self.validate_single_input(entry))
+
+        self.inputs[f"{section}_{var_name}"] = entry
+
     def validate_single_input(self, entry):
-        """Validate a single input field and change border color"""
+        """Validate a single input field"""
         value = entry.get().strip()
         is_valid = False
 
         if value:
-            # Check if it's a string field
             field_key = None
             for key, val in self.inputs.items():
                 if val == entry:
@@ -838,9 +988,12 @@ class HybridRocketGUI:
             if field_key and ("CustomName" in field_key or "ExpandedFormula" in field_key):
                 is_valid = len(value) > 0
             else:
-                # Numeric validation
                 try:
-                    float_val = float(value)
+                    if hasattr(entry, 'validation_params') and entry.validation_params.get('is_int'):
+                        int_val = int(value)
+                        float_val = float(int_val)
+                    else:
+                        float_val = float(value)
                     is_valid = True
 
                     if hasattr(entry, 'validation_params'):
@@ -872,9 +1025,8 @@ class HybridRocketGUI:
     def validate_inputs(self):
         all_valid = True
 
-        # Check all text entries
         for key, entry in self.inputs.items():
-            if isinstance(entry, str):  # Skip string stored values like CustomName
+            if isinstance(entry, str):
                 continue
 
             value = entry.get().strip()
@@ -882,14 +1034,16 @@ class HybridRocketGUI:
                 all_valid = False
                 continue
 
-            # String field validation
             if "CustomName" in key or "ExpandedFormula" in key:
                 if not value:
                     all_valid = False
-            # Numeric field validation
             else:
                 try:
-                    float_val = float(value)
+                    if hasattr(entry, 'validation_params') and entry.validation_params.get('is_int'):
+                        int_val = int(value)
+                        float_val = float(int_val)
+                    else:
+                        float_val = float(value)
 
                     if hasattr(entry, 'validation_params'):
                         params = entry.validation_params
@@ -912,7 +1066,6 @@ class HybridRocketGUI:
                 except ValueError:
                     all_valid = False
 
-        # Check epsilon special case
         if "Nozzle_epsilon" in self.inputs:
             eps_value = self.inputs["Nozzle_epsilon"].get().strip()
             if eps_value:
@@ -925,25 +1078,18 @@ class HybridRocketGUI:
             else:
                 all_valid = False
 
-        # Check fuel weight fraction
-        if "Fuel & Oxidiser_Fuel_WeightFraction" in self.inputs:
-            value = self.inputs["Fuel & Oxidiser_Fuel_WeightFraction"].get().strip()
-            if value:
-                try:
-                    fractions = [float(x.strip()) for x in value.split(',')]
-                    if not (all(f > 0 for f in fractions) and abs(sum(fractions) - 100) < 0.01):
-                        all_valid = False
-                except ValueError:
-                    all_valid = False
-            else:
+        if self.current_page == 'configuration':
+            if not self.selected_fuels or not self.fuel_weight_entries:
                 all_valid = False
+            else:
+                total = sum(self.fuel_weight_entries.values())
+                if abs(total - 100) > 0.01:
+                    all_valid = False
 
-        # Check dropdowns
         for key, combo in self.dropdowns.items():
             if not combo.get():
                 all_valid = False
 
-        # Change button color
         if all_valid:
             self.style.configure("Rounded.TButton", background='#006400')
         else:
@@ -956,9 +1102,8 @@ class HybridRocketGUI:
         config = {}
         all_valid = True
 
-        # Validate text entries
         for key, entry in self.inputs.items():
-            if isinstance(entry, str):  # Handle stored string values
+            if isinstance(entry, str):
                 config[key] = entry
                 continue
 
@@ -979,7 +1124,6 @@ class HybridRocketGUI:
                         all_valid = False
                         break
 
-        # Validate dropdowns
         for key, combo in self.dropdowns.items():
             value = combo.get()
             if not value:
@@ -989,6 +1133,38 @@ class HybridRocketGUI:
 
         if all_valid:
             messagebox.showinfo("Success", "Configuration validated! All fields are valid.")
+        else:
+            messagebox.showerror("Error", "Some fields are empty or invalid.")
+
+    def validate_and_save_optimization(self):
+        """Validate and save optimization configuration"""
+        config = {}
+        all_valid = True
+
+        for key, entry in self.inputs.items():
+            if not key.startswith("Optimization_"):
+                continue
+
+            if isinstance(entry, str):
+                config[key] = entry
+                continue
+
+            value = entry.get().strip()
+            if not value:
+                all_valid = False
+                break
+
+            try:
+                if hasattr(entry, 'validation_params') and entry.validation_params.get('is_int'):
+                    config[key] = int(value)
+                else:
+                    config[key] = float(value)
+            except ValueError:
+                all_valid = False
+                break
+
+        if all_valid:
+            messagebox.showinfo("Success", "Optimization configuration validated! All fields are valid.")
         else:
             messagebox.showerror("Error", "Some fields are empty or invalid.")
 
@@ -1010,7 +1186,6 @@ class HybridRocketGUI:
     def _save_to_file(self, filename):
         config = {}
 
-        # Save text entries
         for key, entry in self.inputs.items():
             if isinstance(entry, str):
                 config[key] = entry
@@ -1022,15 +1197,20 @@ class HybridRocketGUI:
                     config[key] = value
                 else:
                     try:
-                        config[key] = float(value)
+                        if hasattr(entry, 'validation_params') and entry.validation_params.get('is_int'):
+                            config[key] = int(value)
+                        else:
+                            config[key] = float(value)
                     except ValueError:
                         config[key] = value
 
-        # Save dropdowns
         for key, combo in self.dropdowns.items():
             value = combo.get()
             if value:
                 config[key] = value
+
+        config['selected_fuels'] = self.selected_fuels
+        config['fuel_weight_entries'] = self.fuel_weight_entries
 
         with open(filename, 'w') as f:
             json.dump(config, f, indent=4)
@@ -1046,8 +1226,14 @@ class HybridRocketGUI:
                 with open(filename, 'r') as f:
                     config = json.load(f)
 
-                # Load text entries
                 for key, value in config.items():
+                    if key == 'selected_fuels':
+                        self.selected_fuels = value
+                        continue
+                    if key == 'fuel_weight_entries':
+                        self.fuel_weight_entries = value
+                        continue
+
                     if key in self.inputs:
                         if isinstance(self.inputs[key], str):
                             self.inputs[key] = value
@@ -1057,11 +1243,16 @@ class HybridRocketGUI:
                     elif key in self.dropdowns:
                         self.dropdowns[key].set(value)
 
-                # Trigger changes
                 if "Fuel & Oxidiser_Oxidizer" in self.dropdowns:
                     self.on_oxidizer_change()
-                if "Fuel & Oxidiser_Fuel" in self.dropdowns:
-                    self.on_fuel_change()
+
+                if hasattr(self, 'fuel_display_frame'):
+                    self.update_fuel_display()
+                    if self.selected_fuels:
+                        if len(self.selected_fuels) == 1 and self.selected_fuels[0] == "paraffin":
+                            self.create_fuel_dynamic_fields(533.0, -1860.6)
+                        else:
+                            self.create_fuel_dynamic_fields()
 
                 self.current_file = filename
                 self.validate_inputs()
