@@ -42,12 +42,12 @@ def starting_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank, CD, a, n, rho_fuel
     """
 
     if pamb <= 0: # pamb should never be negative obviously but never trust the user
-        pc_range_a = np.linspace(1, 0.8 * ptank, 100)
-        pc_range_b = np.linspace(0.8 * ptank, ptank, 100)
+        pc_range_a = np.linspace(1, 0.8 * ptank, 200)
+        pc_range_b = np.linspace(0.8 * ptank, ptank, 200)
         pc_range = np.concatenate((pc_range_a, pc_range_b[1:]))
     else:
-        pc_range_a = np.linspace(pamb, 0.8 * ptank, 100)
-        pc_range_b = np.linspace(0.8 * ptank, ptank, 100)
+        pc_range_a = np.linspace(pamb, 0.8 * ptank, 200)
+        pc_range_b = np.linspace(0.8 * ptank, ptank, 200)
         pc_range = np.concatenate((pc_range_a, pc_range_b[1:]))
 
     Fpcs = np.ones(np.shape(pc_range))
@@ -119,7 +119,7 @@ def get_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank, CD, a, n, rho_fuel, oxi
     """
     k_Newton = 1
     n_iter = 0
-    maxit = 1000
+    maxit = 100
 
     dpc = 10 #[Pa] Small value for our purposes.
     # Probably every purpose if you're not dealing with void chambers.
@@ -315,7 +315,7 @@ def full_range_simulation(Dport_Dt_range, Dinj_Dt_range, Lc_Dt_range, eps, ptank
 
 
 if __name__=="__main__":
-    #"""
+    """
     Dinj = 0.8  # [m]
     ninj = 1
     Ainj = ninj * 0.25 * np.pi * (Dinj ** 2)
@@ -331,13 +331,13 @@ if __name__=="__main__":
     Ab = nport * np.pi * Dport * Lc
     """
 
-    Dport_Dt_range = np.arange(3.5,5,0.5)
-    Dinj_Dt_range = np.arange(0.8,1,0.05)
-    Lc_Dt_range = np.arange(8,10,1)
+    Dport_Dt_range = np.arange(1.25,3.5,0.25)
+    Dinj_Dt_range = np.arange(0.01,0.8,0.01)
+    Lc_Dt_range = np.arange(1.5,5,0.5)
     #"""
 
     eps = "adapt"
-    ptank = 55e5  # [Pa]
+    ptank = 27e5  # [Pa]
     Ttank = 288  # [K]
     pamb = 1e5  # [Pa]
     gamma0 = 1.3
@@ -361,7 +361,7 @@ if __name__=="__main__":
 
     start = time.process_time()
 
-    #"""
+    """
     pc_start = starting_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank, CD, a, n,
                                  rho_fuel, oxidizer, fuel, pamb, gamma0)
 
@@ -393,7 +393,7 @@ if __name__=="__main__":
     end = time.process_time()
     runtime = (end - start)
 
-    #"""
+    """
     print("pc_start=    "+str(pc_start)+"Pa")
     print("Fpc_start=   "+str(Fpc_start)+"Pa")
     print("pc=          "+str(pc)+"Pa")
@@ -408,6 +408,15 @@ if __name__=="__main__":
     print(eps_array)
     print("flag=")
     print(flag_array)
+    print("pc=")
+    print(pc_array)
+    print("Isp=")
+    print(Is_array)
+
+    print(np.max(Is_array))
+    imax_flat = np.max(Is_array)
+    imax, jmax, kmax = np.unravel_index(imax_flat, Is_array.shape)
+    print(pc_array[imax, jmax, kmax])
     #"""
     print("runtime=     "+str(runtime)+"s")
 

@@ -281,10 +281,10 @@ def full_tank_simulation(m, Q, T, oxidizer, pamb, pc, Ainj, CD, plim, Avent, CD_
 if __name__ == '__main__':
     m0 = 10 #[kg]
     T0 = 298 #[K]
-    #oxidizer = {"OxidizerCP": "NitrousOxide"}
-    oxidizer = {"OxidizerCP": "Oxygen"}
+    oxidizer = {"OxidizerCP": "NitrousOxide"}
+    #oxidizer = {"OxidizerCP": "Oxygen"}
 
-    Q0 = 1
+    Q0 = 0.05
     p0 = 100e5 #[Pa]
 
     Dinj = 3.175e-3 #[m]
@@ -305,19 +305,19 @@ if __name__ == '__main__':
     endtime = 1000
 
     """
-    Vtank = create_tank(m, Q, T, oxidizer, p0)
-    ptank, sL, sV, mL, mV, Q, s, S = starting_conditions(m, T, Vtank, oxidizer)
+    Vtank = create_tank(m0, Q0, T0, oxidizer, p0)
+    ptank, sL, sV, mL, mV, Q, s, S = starting_conditions(m0, T0, Vtank, oxidizer)
 
     inj = injection.Injector(oxidizer["OxidizerCP"])
 
     if Q < 0.99:
-        inj.massflow(ptank, pc, T, CD)
+        inj.massflow(ptank, pc, T0, CD)
         mdotL = inj.mdot * Ainj
     else:
-        mdotL = Ainj * injection.gas_injection(ptank, pc, T, CD, oxidizer["OxidizerCP"])
+        mdotL = Ainj * injection.gas_injection(ptank, pc, T0, CD, oxidizer["OxidizerCP"])
 
     if ptank > plim:
-        mdotV = Avent * injection.gas_injection(ptank, pamb, T, CD_vent, oxidizer["OxidizerCP"])
+        mdotV = Avent * injection.gas_injection(ptank, pamb, T0, CD_vent, oxidizer["OxidizerCP"])
     else:
         mdotV = 0
 
@@ -339,29 +339,29 @@ if __name__ == '__main__':
     m, mL, mV, Q, sL, sV, S, ptank, T= (
             do_one_step(mdotL, mdotV, sL, sV, S, m, Q, oxidizer, Vtank, dt))
 
-        if Q < 0.99:
-            inj.massflow(ptank, pc, T, CD)
-            mdotL = inj.mdot * Ainj
-        else:
-            mdotL = Ainj * injection.gas_injection(ptank, pc, T, CD, oxidizer["OxidizerCP"])
+    if Q < 0.99:
+        inj.massflow(ptank, pc, T, CD)
+        mdotL = inj.mdot * Ainj
+    else:
+        mdotL = Ainj * injection.gas_injection(ptank, pc, T, CD, oxidizer["OxidizerCP"])
 
-        if ptank > plim:
-            mdotV = Avent * injection.gas_injection(ptank, pamb, T, CD_vent, oxidizer["OxidizerCP"])
-        else:
-            mdotV = 0
+    if ptank > plim:
+        mdotV = Avent * injection.gas_injection(ptank, pamb, T, CD_vent, oxidizer["OxidizerCP"])
+    else:
+        mdotV = 0
 
-        print("Tank pressure= " + str(ptank) + " Pa")
-        print("Temperature= " + str(T) + " K")
-        print("Total mass= " + str(m) + " kg")
-        print("Liquid mass= " + str(mL) + " kg")
-        print("Vapor mass= " + str(mV) + " kg")
-        print("Liquid mass flow= " + str(mdotL) + " kg/s")
-        print("Vapor mass flow= " + str(mdotV) + " kg/s")
-        print("Quality= " + str(Q))
-        print("Liquid specific entropy= " + str(sL) + ' J/kgK')
-        print("Vapor specific entropy= " + str(sV) + ' J/kgK')
-        print("Total specific entropy= " + str(s) + ' J/kgK')
-        print("Total entropy= " + str(S) + ' J/K')
+    print("Tank pressure= " + str(ptank) + " Pa")
+    print("Temperature= " + str(T) + " K")
+    print("Total mass= " + str(m) + " kg")
+    print("Liquid mass= " + str(mL) + " kg")
+    print("Vapor mass= " + str(mV) + " kg")
+    print("Liquid mass flow= " + str(mdotL) + " kg/s")
+    print("Vapor mass flow= " + str(mdotV) + " kg/s")
+    print("Quality= " + str(Q))
+    print("Liquid specific entropy= " + str(sL) + ' J/kgK')
+    print("Vapor specific entropy= " + str(sV) + ' J/kgK')
+    print("Total specific entropy= " + str(s) + ' J/kgK')
+    print("Total entropy= " + str(S) + ' J/K')
     """
 
     time, mdotL_vec, mdotV_vec, ptank_vec, Ttank_vec, m_vec, mL_vec, mV_vec, Q_vec, sL_vec, sV_vec, s_vec, S_vec = (
