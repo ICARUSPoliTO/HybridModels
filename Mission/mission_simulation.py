@@ -5,14 +5,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 import Performance.performance_singlepoint as performance
 
-def update_chamberpressure(pc_i, Tc_i, MW_i, r_i, Ab_i, mdot_ox_i, mdot_fuel_i, At, cs_i, dt, Ainj, Aport,
+
+def update_chamberpressure(pc_i, Tc_i, MW_i, r_i, Ab_i, mdot_ox_i, mdot_fuel_i, mdot_throat_i, Vol_chamber_i, dt, Ainj, Aport,
                            eps, ptank, Ttank, CD, a, n, rho_fuel, oxidizer, fuel, pamb=0.0, gamma0=1.3):
     """
     This function updates the chamber pressure with a finite difference of the mass conservation equation.
     dm/dt = mdot_ox + mdot_fuel - (pc * At / c*)
     with
     m = pc * V / (R * Tc) [Ideal gas state equation]
-    dm/dt = d(pc/(R * Tc))/dt + pc/(R * Tc) * dV/dt
+    dm/dt = d(pc/(R * Tc))/dt * V + pc/(R * Tc) * dV/dt
     and
     dV/dt = r * Ab
 
@@ -23,8 +24,8 @@ def update_chamberpressure(pc_i, Tc_i, MW_i, r_i, Ab_i, mdot_ox_i, mdot_fuel_i, 
     :param Ab_i: Burning area previous step [m^2]
     :param mdot_ox_i: Oxidizer mass flow previous step [kg/s]
     :param mdot_fuel_i: Fuel mass flow previous step [kg/s]
-    :param At: Throat Area [m^2]
-    :param cs_i: Characteristic velocity previous step [m/s]
+    :param mdot_throat_i: Mass flow through throat Area [kg/s]
+    :param Vol_chamber_i: Volume of the chamber previous step [m^3]
     :param dt: time step [s]
     :param Ainj: Injection area [m^2]
     :param Aport: Port area [m^2]
@@ -56,9 +57,9 @@ def update_chamberpressure(pc_i, Tc_i, MW_i, r_i, Ab_i, mdot_ox_i, mdot_fuel_i, 
     """
     R_i = 8314 / MW_i #[J/kgK]
     rho_c_i = pc_i / (R_i * Tc_i)
-    Dmdot_i = mdot_ox_i + mdot_fuel_i - (pc_i * At / cs_i)
+    Dmdot_i = mdot_ox_i + mdot_fuel_i - mdot_throat_i
 
-    rho_c = rho_c_i * (1 - r_i * Ab_i) + Dmdot_i * dt
+    rho_c = rho_c_i * (1 - r_i * Ab_i * dt / Vol_chamber_i) + Dmdot_i * dt / Vol_chamber_i
 
     pc = rho_c * R_i * Tc_i
     err = 1
