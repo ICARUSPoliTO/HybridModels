@@ -42,6 +42,32 @@ def gas_injection(p1, p2, T, CD, fluid):
 
     return mdot
 
+def gas_injection_custom(p1, p2, T, CD, gamma, M):
+    """
+    Ideal gas injection
+    :param p1: Injection pressure [Pa]
+    :param p2: Outer pressure [Pa]
+    :param T: Temperature [K]
+    :param CD: Discharge coefficient
+    :param fluid: Fluid name for coolprop
+    :return: mdot: Mass flow rate over injection area [kg/(s*m^2)]
+    """
+    if p1 > p2:
+
+        R = 8314/M
+
+        mdot = CD * p1/np.sqrt(R*T)
+        gammone = np.sqrt(gamma * (2 / (gamma + 1)) ** ((gamma + 1) / (gamma - 1)))
+        pe_pc_crit = (2 / (gamma + 1)) ** (gamma / (gamma - 1))
+        if (p2 / p1) < pe_pc_crit: # Is critical?
+            mdot = mdot * gammone
+        else:
+            mdot= mdot * np.sqrt((2 * gamma) * ((p2 / p1) ** (2 / gamma) - (p2 / p1) ** ((gamma + 1) / gamma)) / (gamma - 1))
+    else:
+        mdot = 0
+
+    return mdot
+
 
 class Injector(object):
     def __init__(self, fluid):
