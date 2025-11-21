@@ -54,7 +54,8 @@ def update_chamberpressure(pc_i, Tc_i, MW_i, Ab_i, mdot_ox_i, mdot_fuel_i, mdot_
     :param pamb: ambient pressure [Pa]
     :param gamma0: specific heat ratio initial guess
     :return pc: Chamber pressure [Pa]
-            flag: 0=converged, 1=diverged
+            flag: 0=converged, 1=diverged,
+            dt: time step [s]
     """
     R_i = 8314 / MW_i #[J/kgK]
     m_c_i = pc_i * Vol_chamber_i / (R_i * Tc_i)
@@ -101,40 +102,13 @@ def update_chamberpressure_nocombustion(pc_i, Tc_i, MW_i, mdot_ox_i, mdot_fuel_i
     :param pc_i: Chamber pressure previous step [Pa]
     :param Tc_i: Chamber temperature previous step [K]
     :param MW_i: Molecular weight previous step [kg/kmol]
-    :param Ab_i: Burning area previous step [m^2]
     :param mdot_ox_i: Oxidizer mass flow previous step [kg/s]
     :param mdot_fuel_i: Fuel mass flow previous step [kg/s]
     :param mdot_throat_i: Mass flow through throat Area [kg/s]
     :param Vol_chamber_i: Volume of the chamber previous step [m^3]
-    :param dt: time step [s]
-    :param Ainj: Injection area [m^2]
-    :param Aport_i: Port area previous step[m^2]
-    :param eps: expansion ratio
-    :param ptank: tank pressure [Pa]
-    :param Ttank: Tank temperature [K]
-    :param CD: Discharge coefficient
-    :param a: regression rate coefficient r = a * Gox**n
-    :param n: regression rate exponent r = a * Gox**n
-    :param rho_fuel: fuel density [kg/m^3]
-    :param oxidizer: oxidizer properties (Coolprop & CEA)
-        {"OxidizerCP" : "", <--Name for CoolProp
-        "OxidizerCEA" : "", <--Name for CEA
-        "Weight fraction" : "100", # Multi-fluid Ox injector not available
-        "Exploded Formula": "",
-        "Temperature [K]" : "",
-        "Specific Enthalpy [kj/mol]" : ""
-        }
-    :param fuel     : fuel properties
-        {"Fuels" : [],  <--Names for CEA
-        "Weight fraction" : [],
-        "Exploded Formula": [],
-        "Temperature [K]" : [],
-        "Specific Enthalpy [kj/mol]" : []
-        }
-    :param pamb: ambient pressure [Pa]
-    :param gamma0: specific heat ratio initial guess
     :return pc: Chamber pressure [Pa]
-            flag: 0=converged, 1=diverged
+            flag: 0=converged, 1=diverged,
+            dt: time step [s]
     """
     R_i = 8314 / MW_i #[J/kgK]
     m_c_i = pc_i * Vol_chamber_i / (R_i * Tc_i)
