@@ -144,23 +144,32 @@ if __name__ == '__main__':
     plt.close('all')
 
     ox = Injector('NitrousOxide')
+    #ox = Injector('Water')
 
-    ox.injection_area(0.0127,1)
-    pinj= 2e5 #[Pa]
+    ox.injection_area(0.001,6)
+    pinj= 50e5 #[Pa]
     Ttank = 288  # [K]
     pc = 1e5 #[Pa]
     mdot= np.zeros(np.shape(pinj))
     mdot_SPI= np.zeros(np.shape(pinj))
     mdot_HEM= np.zeros(np.shape(pinj))
 
-    print('M='+str(cp.PropsSI('MOLARMASS', ox.fluid)*1e3))
+    #print('M='+str(cp.PropsSI('MOLARMASS', ox.fluid)*1e3))
     ox.massflow(pinj, pc, Ttank, 1)
     mdot = ox.mdot * ox.A
+    rho = cp.PropsSI('D', 'P', 0.5*(pc+pinj), 'T', Ttank, ox.fluid)
+    dp = (pinj - pc) * 1e-5
+    Q = mdot * 3600 / rho
+    Kv = Q / np.sqrt(dp * 1000 / rho)
 
     mfuel = 0.116*(mdot/(0.25*np.pi*(13.4E-3)**2))**0.331
 
-    print(pinj)
-    print(mdot)
+    print("Out density [kg/m^3]= ", rho)
+    print("p tank [bar]= ", pinj*1e-5)
+    print("p out [bar]= ", pc*1e-5)
+    print("Q [m^3/h]= ", Q)
+    print("Kv (Q: [m^3/h], p: [bar])= ", Kv)
+    print("Kv (Q: [l/min], p: [bar])= ", Kv*1000/60)
 
     #plt.plot(pinj,mdot, label='Dyer')
 
