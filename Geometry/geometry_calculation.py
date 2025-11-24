@@ -23,6 +23,20 @@ def plot_polygon(x, y, title=None):
         plt.title(title)
     plt.show()
 
+def create_regular_poligon(n_sides, circum_radius):
+    """
+    Generates a regular poligon inscripted in the circumference.
+    :param n_sides: Number of sides
+    :param circum_radius: Radius of circumscribed circonference
+    :return: x_poly, y_poly
+    """
+    theta = 2 * np.pi / n_sides
+    thetas = np.arange(0, n_sides, 1)
+    thetas = thetas * theta
+    x_poly = circum_radius * np.cos(thetas)
+    y_poly = circum_radius * np.sin(thetas)
+    return x_poly, y_poly
+
 def translate_figure(x, y):
     """
     This function is used to translate the figure coordinates to have the origin inside it.
@@ -131,14 +145,17 @@ def calculate_surfaces_from_points(x, y, lc, step=0.0):
     return PortArea, BurningArea
 
 if __name__ == "__main__":
-    lc = 2  # lunghezza del grano [m]
-    step = 0.1  # passo elica [m]
+    #lc = 2  # lunghezza del grano [m]
+    radius = 8
+    step = 26.336  # passo elica [m]
+    lc = step
     n_points_per_side = 50
 
     # ---- Test 1: quadrato semplice ----
     # definisco quadrato non centrato e punti in ordine casuale
-    x_sq = np.array([8.0, 8.0, 0.0, 0.0])
-    y_sq = np.array([0.0, 8.0, 8.0, 0.0])
+    #x_sq = np.array([2.0, 2.0, 0.0, 0.0])
+    #y_sq = np.array([0.0, 2.0, 2.0, 0.0])
+    x_sq, y_sq = create_regular_poligon(6, radius)
     # mischio gli indici per simulare input disordinato
     perm = np.random.permutation(len(x_sq))
     x_sq_shuffled = x_sq[perm]
@@ -213,5 +230,7 @@ if __name__ == "__main__":
                                                                                                      1e-12) < 1e-6, "PortArea mismatch for polygon"
 
     print("\nTutti i test completati con successo.")
+
+
 
 
