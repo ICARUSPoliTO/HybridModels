@@ -37,6 +37,41 @@ def create_regular_poligon(n_sides, circum_radius):
     y_poly = circum_radius * np.sin(thetas)
     return x_poly, y_poly
 
+def create_repeated_instance(x, y, n_instances):
+    """
+    Given the points, repeats an instance around the origin for the given number.
+    It also removes the points sharing the same location.
+    :param x: x-axis points
+    :param y: y-axis points
+    :param n_instances: number of instances to repeat
+    :return: x_u, y_u
+    """
+    theta = 2 * np.pi / n_instances
+    thetas = np.arange(0, n_instances, 1) * theta
+
+    angles = np.arctan2(y, x)
+    radius = np.hypot(x, y)
+
+    angles_rep = []
+    radius_rep = []
+    for i in range(n_instances):
+        angles_rep.append(thetas[i]+angles)
+        radius_rep.append(radius)
+
+    angles_rep = np.array(angles_rep).ravel()
+    radius_rep = np.array(radius_rep).ravel()
+
+    x_rep = radius_rep * np.cos(angles_rep)
+    y_rep = radius_rep * np.sin(angles_rep)
+
+    pts = np.vstack((x_rep, y_rep)).T
+    _, idx = np.unique(pts, axis=0, return_index=True)
+    idx_sorted = np.sort(idx)
+    pts_unique_in_order = pts[idx_sorted]
+    x_u, y_u = pts_unique_in_order[:, 0], pts_unique_in_order[:, 1]
+
+    return x_u, y_u
+
 def translate_figure(x, y):
     """
     This function is used to translate the figure coordinates to have the origin inside it.
@@ -54,6 +89,7 @@ def translate_figure(x, y):
 def sort_input(x, y):
     """
     This function sorts the (x, y) inputs to be couterclock-wise.
+    Use it carefully because it may change the desired geometry.
     :param x: np.array of x values
     :param y: np.array of y values
     :return: x_sorted, y_sorted
@@ -67,6 +103,13 @@ def sort_input(x, y):
     return x_sorted, y_sorted
 
 def fill_borders(x, y, n_points_per_side):
+    """
+    Linear fill between (x, y) points.
+    :param x: x-axis points
+    :param y: y-axis points
+    :param n_points_per_side: number of points between every x and y
+    :return: x_fill, y_fill
+    """
     x2 = np.r_[x, x[0]]
     y2 = np.r_[y, y[0]]
 
@@ -74,7 +117,6 @@ def fill_borders(x, y, n_points_per_side):
     y1 = y2[1:]
 
     t = np.linspace(0, 1, n_points_per_side + 1)[:-1]
-    # calcoli broadcast: xs, ys shape (N, k)
     dx = (x1 - x)[:, None]  # (N,1)
     dy = (y1 - y)[:, None]  # (N,1)
     xs = x[:, None] + dx * t[None, :]  # (N,k)
@@ -85,6 +127,55 @@ def fill_borders(x, y, n_points_per_side):
 
     return x_fill, y_fill
 
+def fill_borders_circumference(x, y, n_points_per_side):
+    """
+    Circular fill between (x, y) points if they have the same radius, or linear fill otherwise.
+    :param x: x-axis points
+    :param y: y-axis points
+    :param n_points_per_side: number of points between every x and y
+    :return: x_fill, y_fill
+    """
+    x2 = np.r_[x, x[0]]
+    y2 = np.r_[y, y[0]]
+
+    x0 = x2[:-1]
+    y0 = y2[:-1]
+    x1 = x2[1:]
+    y1 = y2[1:]
+
+    t = np.linspace(0, 1, n_points_per_side + 1)[:-1]
+    dx = (x1 - x)[:, None]  # (N,1)
+    dy = (y1 - y)[:, None]  # (N,1)
+
+    r0 = np.hypot(x0, y0)
+    r1 = np.hypot(x1, y1)
+    same_r = np.isclose(r0, r1, atol=1e-12)
+
+    theta0 = np.arctan2(y0, x0)  # (-pi, pi]
+    theta1 = np.arctan2(y1, x1)
+    delta = theta1 - theta0
+    delta = (delta + np.pi) % (2.0 * np.pi) - np.pi
+
+    t_row = t[None, :]  # (1,k)
+
+    xs_lin = x0[:, None] + dx * t_row
+    ys_lin = y0[:, None] + dy * t_row
+
+    r0_col = r0[:, None]
+    theta0_col = theta0[:, None]
+    delta_col = delta[:, None]
+    thetas = theta0_col + delta_col * t_row  # (N,k)
+    xs_circ = r0_col * np.cos(thetas)
+    ys_circ = r0_col * np.sin(thetas)
+
+    mask = same_r[:, None]  # (N,1) broadcastable
+    xs_block = np.where(mask, xs_circ, xs_lin)
+    ys_block = np.where(mask, ys_circ, ys_lin)
+
+    x_fill = xs_block.ravel()
+    y_fill = ys_block.ravel()
+
+    return x_fill, y_fill
 
 def calculate_surfaces_from_points(x, y, lc, step=0.0):
     """
@@ -143,6 +234,19 @@ def calculate_surfaces_from_points(x, y, lc, step=0.0):
         BurningArea = n_step * np.sum(H * c)
 
     return PortArea, BurningArea
+
+def burn_surface(x, y, z, regression_rate, dt):
+    x2 = np.r_[x, x[0]]
+    y2 = np.r_[y, y[0]]
+
+    dx = np.diff(x2)
+    dy = np.diff(y2)
+    dr = np.hypot(dx, dy)
+
+    dx = dx/dr
+    dy = dy/dr
+    tangentials = np.vstack((dx, dy)).T
+    
 
 if __name__ == "__main__":
     #lc = 2  # lunghezza del grano [m]
@@ -230,6 +334,12 @@ if __name__ == "__main__":
                                                                                                      1e-12) < 1e-6, "PortArea mismatch for polygon"
 
     print("\nTutti i test completati con successo.")
+
+    x_inst = np.array([2.0, 2.0, 0.0])
+    y_inst = np.array([0.0, 2.0, 2.0])
+    x_rep, y_rep = create_repeated_instance(x_inst, y_inst, 2)
+    x_fillc, y_fillc = fill_borders_circumference(x_rep, y_rep, 50)
+
 
 
 
