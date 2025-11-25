@@ -248,6 +248,7 @@ def burn_surface(x, y, z, regression_rate, dt):
     tangentials = np.vstack((dx, dy)).T
 
 
+
 if __name__ == "__main__":
     #lc = 2  # lunghezza del grano [m]
     radius = 8

@@ -10,6 +10,60 @@ import matplotlib.pyplot as plt
 # Gregory G. Zilliac
 # NASA Ames Research Center, Mo et Field, CA 94035
 #
+
+def NHNE_injection(p1, p2, T, cD, fluid):
+    """
+    NHNE injection
+    :param p1: Injection pressure [Pa]
+    :param p2: Outer pressure [Pa]
+    :param T: Temperature [K]
+    :param CD: Discharge coefficient
+    :param fluid: Fluid name for coolprop
+    :return: mdot: Mass flow rate over injection area [kg/(s*m^2)]
+    """
+    # Isothermal fluid in the line (hypothesis)
+    # p1 = Tank pressure[Pa], p2 = Chamber pressure[Pa], T = Tank temperature[K]
+    try:
+        h1 = cp.PropsSI('H', 'P', p1, 'T', T, fluid)
+    except ValueError:
+        h1 = cp.PropsSI('H', 'T', T, 'Q', 0, fluid)
+
+    try:
+        h2 = cp.PropsSI('H', 'P', p2, 'T', T, fluid)
+    except ValueError:
+        h2 = cp.PropsSI('H', 'T', T, 'Q', 1, fluid)
+
+    try:
+        d2 = cp.PropsSI('D', 'P', p2, 'T', T, fluid)
+    except ValueError:
+        d2 = cp.PropsSI('D', 'T', T, 'Q', 1, fluid)
+
+    try:
+        dSPI = cp.PropsSI('D', 'T', T, 'Q', 0, fluid)
+    except ValueError:
+        dSPI = cp.PropsSI('D', 'T', T, 'P', p1, fluid)
+
+    # Vapor pressure
+    pV = cp.PropsSI('P', 'T', T, 'Q', 1, fluid)
+
+    if p1 > p2:
+        mdot_SPI = cD * np.sqrt(2 * dSPI * (p1 - p2))  # [kg/s*m^2]
+
+        mdot_HEM = cD * d2 * np.sqrt(2 * abs(h1 - h2))  # [kg/s*m^2]
+
+        if pV > p2:  # N2O exits as a mixture
+            k = np.sqrt((p1 - p2) / (pV - p2))
+
+            mdot = (k * mdot_SPI / (k + 1) + mdot_HEM / (k + 1))  # [kg/s*m^2]
+        else:  # N2O is always liquid
+            mdot = mdot_SPI  # [kg/s*m^2]
+
+    else:
+        # print('Backflow not possible')
+        mdot = 0
+
+    return mdot
+
 def gas_injection(p1, p2, T, CD, fluid):
     """
     Ideal gas injection
@@ -68,8 +122,28 @@ def gas_injection_custom(p1, p2, T, CD, gamma, M):
 
     return mdot
 
+def massflow(p1, p2, T, CD, fluid):
+
+    """
+    if fluid not in cp.FluidsList():
+        print("Fluid not found")
+        print(cp.FluidsList())
+        exit('Read the list above and try again!')
+    """
+    try:
+        pV = cp.PropsSI('P', 'T', T, 'Q', 1, fluid)
+        print('NHNE')
+        mdot = NHNE_injection(p1, p2, T, CD, fluid)
+    except ValueError:
+        mdot = gas_injection(p1, p2, T, CD, fluid)
+        print('Gas')
+
+    return mdot
 
 class Injector(object):
+    """
+    Deprecated.
+    """
     def __init__(self, fluid):
         if fluid in cp.FluidsList():
             self.fluid = fluid
@@ -100,7 +174,10 @@ class Injector(object):
         except ValueError:
             d2 = cp.PropsSI('D', 'T', T, 'Q', 1, self.fluid)
 
-        dSPI = cp.PropsSI('D', 'T',T, 'Q', 0, self.fluid)
+        try:
+            dSPI = cp.PropsSI('D', 'T',T, 'Q', 0, self.fluid)
+        except ValueError:
+            dSPI = cp.PropsSI('D', 'T', T, 'P', p1, self.fluid)
 
         # Vapor pressure
         pV = cp.PropsSI('P','T',T, 'Q', 1, self.fluid)
@@ -170,6 +247,7 @@ if __name__ == '__main__':
     print("Q [m^3/h]= ", Q)
     print("Kv (Q: [m^3/h], p: [bar])= ", Kv)
     print("Kv (Q: [l/min], p: [bar])= ", Kv*1000/60)
+    
 
     #plt.plot(pinj,mdot, label='Dyer')
 
