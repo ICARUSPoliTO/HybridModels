@@ -246,7 +246,7 @@ def burn_surface(x, y, z, regression_rate, dt):
     dx = dx/dr
     dy = dy/dr
     tangentials = np.vstack((dx, dy)).T
-    
+
 
 if __name__ == "__main__":
     #lc = 2  # lunghezza del grano [m]
@@ -338,7 +338,9 @@ if __name__ == "__main__":
     x_inst = np.array([2.0, 2.0, 0.0])
     y_inst = np.array([0.0, 2.0, 2.0])
     x_rep, y_rep = create_repeated_instance(x_inst, y_inst, 2)
+    plot_polygon(x_rep, y_rep, title='Poligono ripetuto')
     x_fillc, y_fillc = fill_borders_circumference(x_rep, y_rep, 50)
+    plot_polygon(x_fillc, y_fillc, title='Poligono ripetuto')
 
 
 
