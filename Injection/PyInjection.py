@@ -132,11 +132,9 @@ def massflow(p1, p2, T, CD, fluid):
     """
     try:
         pV = cp.PropsSI('P', 'T', T, 'Q', 1, fluid)
-        print('NHNE')
         mdot = NHNE_injection(p1, p2, T, CD, fluid)
     except ValueError:
         mdot = gas_injection(p1, p2, T, CD, fluid)
-        print('Gas')
 
     return mdot
 
