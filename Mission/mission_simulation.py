@@ -1,15 +1,56 @@
 """
-This file provides the function to simulate a mission of an hybrid rocket engine.
+This file provides the function to simulate a mission of a hybrid rocket engine.
 """
+from math import isclose
+
 import numpy as np
 import matplotlib.pyplot as plt
 import Performance.performance_singlepoint as performance
 import Injection.PyInjection as injection
 
 
-def update_chamberpressure(pc_i, Tc_i, MW_i, Ab_i, mdot_ox_i, mdot_fuel_i, mdot_throat_i,
-                           Vol_chamber_i, Ainj, Aport_i,
-                           eps, ptank, Ttank, CD, a, n, rho_fuel, oxidizer, fuel, pamb=0.0, gamma0=1.3):
+def update_Temperature_and_gasproperties(pc, Tc, MW, gamma, Tc_CEA, MW_CEA, gamma_CEA,
+                                         mdot_ox, mdot_fuel, mdot_throat, Vol_chamber):
+    """
+    This updates the properties of the gas in the chamber.
+    The calculation is used to get the needed timestep for geometry and tank update.
+    :param pc_i: Chamber pressure [Pa]
+    :param Tc_i: Chamber temperature [K]
+    :param MW_i: Molecular weight [kg/kmol]
+    :param gamma_i: Specific heat ratio
+    :param Tc_CEA: Chamber temperature from CEA [K]
+    :param MW_CEA: Molecular weight from CEA [K]
+    :param gamma_CEA: Specific heat ratio from CEA
+    :param mdot_ox_i: Oxidizer mass flow [kg/s]
+    :param mdot_fuel_i: Fuel mass flow [kg/s]
+    :param mdot_throat_i: Throat mass flow [kg/s]
+    :param Vol_chamber_i: Chamber volume [m^3]
+    :return: Tc_actual, MW_actual, dt
+    """
+    R = 8314 / MW #[J/kgK]
+    cp = gamma * R / (gamma - 1)
+    m_c_i = pc * Vol_chamber / (R * Tc)
+
+    Dmdot_in = mdot_ox + mdot_fuel
+    Dmdot_out = mdot_throat
+    Dmdot = Dmdot_in - Dmdot_out
+
+    dt = abs(m_c_i / max(Dmdot_in, Dmdot_out)) / 2.5
+
+    dmc_in = Dmdot_in * dt
+    dmc_out = Dmdot_out * dt
+    dmc = Dmdot * dt
+    m_c = m_c_i + dmc
+
+    R_CEA = 8314 / MW_CEA
+    cp_CEA = gamma_CEA * R_CEA / (gamma_CEA - 1)
+    Tc_actual =  ((cp / cp_CEA) * (m_c_i - dmc_out) * Tc + dmc_in * Tc_CEA) / m_c
+    MW_actual = m_c / (((m_c_i - dmc_out) / MW) + (dmc_in / MW_CEA))
+
+    return Tc_actual, MW_actual, dt
+
+
+def update_chamberpressure(pc_i, Tc_i, MW_i, mdot_ox_i, mdot_fuel_i, At, pamb=0.0, gamma0=1.3):
     """
     This function updates the chamber pressure with a finite difference of the mass conservation equation.
     dm/dt = mdot_ox + mdot_fuel - (pc * At / c*)
@@ -22,133 +63,51 @@ def update_chamberpressure(pc_i, Tc_i, MW_i, Ab_i, mdot_ox_i, mdot_fuel_i, mdot_
     :param pc_i: Chamber pressure previous step [Pa]
     :param Tc_i: Chamber temperature previous step [K]
     :param MW_i: Molecular weight previous step [kg/kmol]
-    :param Ab_i: Burning area previous step [m^2]
     :param mdot_ox_i: Oxidizer mass flow previous step [kg/s]
     :param mdot_fuel_i: Fuel mass flow previous step [kg/s]
-    :param mdot_throat_i: Mass flow through throat Area [kg/s]
-    :param Vol_chamber_i: Volume of the chamber previous step [m^3]
-    :param Ainj: Injection area [m^2]
-    :param Aport_i: Port area previous step[m^2]
-    :param eps: expansion ratio
-    :param ptank: tank pressure [Pa]
-    :param Ttank: Tank temperature [K]
-    :param CD: Discharge coefficient
-    :param a: regression rate coefficient r = a * Gox**n
-    :param n: regression rate exponent r = a * Gox**n
-    :param rho_fuel: fuel density [kg/m^3]
-    :param oxidizer: oxidizer properties (Coolprop & CEA)
-        {"OxidizerCP" : "", <--Name for CoolProp
-        "OxidizerCEA" : "", <--Name for CEA
-        "Weight fraction" : "100", # Multi-fluid Ox injector not available
-        "Exploded Formula": "",
-        "Temperature [K]" : "",
-        "Specific Enthalpy [kj/mol]" : ""
-        }
-    :param fuel     : fuel properties
-        {"Fuels" : [],  <--Names for CEA
-        "Weight fraction" : [],
-        "Exploded Formula": [],
-        "Temperature [K]" : [],
-        "Specific Enthalpy [kj/mol]" : []
-        }
     :param pamb: ambient pressure [Pa]
     :param gamma0: specific heat ratio initial guess or previous step
     :return pc: Chamber pressure [Pa]
             flag: 0=converged, 1=diverged,
             dt: time step [s]
     """
-    R_i = 8314 / MW_i #[J/kgK]
-    cp_i = gamma0 * R_i / (gamma0 - 1)
-    m_c_i = pc_i * Vol_chamber_i / (R_i * Tc_i)
 
-    Dmdot_in_i = mdot_ox_i + mdot_fuel_i
-    Dmdot_out_i = mdot_throat_i
-    Dmdot_i = Dmdot_in_i - Dmdot_out_i
+    mdot_in = mdot_ox_i + mdot_fuel_i #[kg/s]
+    dpc = 0 # [Pa]
 
-    dt = abs(m_c_i / max(Dmdot_in_i, Dmdot_out_i)) / 2.5
-
-
-    dmc_in = Dmdot_in_i * dt
-    dmc_out = Dmdot_out_i * dt
-    dmc = Dmdot_i * dt
-    m_c = m_c_i + dmc
-
-    pc = m_c * R_i * Tc_i / Vol_chamber_i
-
-    Tc_actual = Tc_i
-    MW_actual = MW_i
-    err = 1
+    pc = pc_i # [Pa]
+    fmpc = 1
+    maxit = 100
+    n_it = 0
     flag = 0
-    num_it = 0
-    maxit = 1000
+    while (abs(fmpc) > 1e-6) & (n_it < maxit):
+        n_it += 1
+        mdot_out = injection.gas_injection_custom(pc, pamb, Tc_i, 1, gamma0, MW_i) * At
+        fmpc = mdot_out - mdot_in
 
-    if abs(Dmdot_i) < 1e-12:
-        num_it = maxit
+        dfmpc = fmpc
+        while np.isclose(dfmpc, fmpc, rtol=1e-12) & (dpc < 10):
+            dpc += 1
+            dmdot_out = injection.gas_injection_custom((pc+dpc), pamb, Tc_i, 1, gamma0, MW_i) * At
+            dfmpc = dmdot_out - mdot_in
 
-    while (err > 1e-6) & (num_it < maxit):
-        num_it += 1
-        (p_inj, mdot_ox, mdot_fuel, mdot, Gox, r, MR, Tc, MW, gamma, eps_out, cs,
-         CF_vac, CF, Ivac, Is, flag_performance) = (
-            performance.calculate_performance(Ainj, Aport_i, Ab_i, eps, ptank, Ttank, pc, CD,
-                          a, n, rho_fuel, oxidizer, fuel, pamb, gamma0))
-        if flag_performance==1:
-            num_it = maxit
-        else:
-            R = 8314 / MW
-            cp = gamma * R / (gamma - 1)
-            Tc_actual =  ((cp_i / cp) * (m_c_i - dmc_out) * Tc_i + dmc_in * Tc) / m_c
-            MW_actual = m_c / (((m_c_i - dmc_out) / MW_i) + (dmc_in / MW))
-            R_actual = 8314 / MW_actual
+        dF = (dfmpc - fmpc) / dpc
 
-            Vol_chamber = Vol_chamber_i + r * Ab_i
+        if abs(dF) < 1e-12:
+            print('dfmpc = ', dfmpc)
+            print('fmpc = ', fmpc)
+            break
 
-            pc_old = pc
+        pc = pc - (fmpc / dF)
 
-            # pc = m_c * R_actual * Tc_actual / Vol_chamber
-            # pc = m_c * R * Tc_actual / Vol_chamber
-            pc = m_c * R_actual * Tc / Vol_chamber
-            # pc = m_c * R * Tc / Vol_chamber
+        dpc = 0
 
-            err = abs(pc_old - pc) / abs(pc_old)
 
-    if num_it == maxit:
+    if n_it == maxit:
         flag = 1
 
-    return pc, flag, dt, Tc_actual, MW_actual
+    return pc, flag
 
-
-
-def update_chamberpressure_nocombustion(pc_i, Tc_i, MW_i, mdot_ox_i, mdot_throat_i,
-                           Vol_chamber_i):
-    """
-    This function updates the chamber pressure with a finite difference of the mass conservation equation.
-    dm/dt = mdot_ox + mdot_fuel - (pc * At / c*)
-    with
-    m = pc * V / (R * Tc) [Ideal gas state equation]
-    dm/dt = d(pc/(R * Tc))/dt * V + pc/(R * Tc) * dV/dt
-    and
-    dV/dt = r * Ab
-
-    :param pc_i: Chamber pressure previous step [Pa]
-    :param Tc_i: Chamber temperature previous step [K]
-    :param MW_i: Molecular weight previous step [kg/kmol]
-    :param mdot_ox_i: Oxidizer mass flow previous step [kg/s]
-    :param mdot_throat_i: Mass flow through throat Area [kg/s]
-    :param Vol_chamber_i: Volume of the chamber previous step [m^3]
-    :return pc: Chamber pressure [Pa]
-            flag: 0=converged, 1=diverged,
-            dt: time step [s]
-    """
-    R_i = 8314 / MW_i #[J/kgK]
-    m_c_i = pc_i * Vol_chamber_i / (R_i * Tc_i)
-    Dmdot_i = mdot_ox_i - mdot_throat_i
-
-    dt = abs(m_c_i / Dmdot_i) / 2.5
-    m_c = m_c_i + Dmdot_i * dt
-
-    pc = m_c * R_i * Tc_i / Vol_chamber_i
-
-    return pc, dt
 
 if __name__ == '__main__':
     pc = 1e5
@@ -169,7 +128,7 @@ if __name__ == '__main__':
     Lc = 0.3
     Ab = np.pi * Dp * Lc
     Aport = 0.25 * np.pi * Dp**2
-    Vol_chamber_i = Aport * Lc
+    Vol_chamber = Aport * Lc
 
     Dt = Dp / 1.5
     At = 0.25 * np.pi * Dt**2
@@ -191,7 +150,7 @@ if __name__ == '__main__':
             "Specific Enthalpy [kj/mol]": [-1860.6]
             }
 
-    eps = 3
+    eps = 6
 
     """
     (p_inj, mdot_ox_i, mdot_fuel_i, mdot, Gox, r_i, MR, Tc_i, MW_i, gamma, eps, cs,
@@ -205,31 +164,37 @@ if __name__ == '__main__':
     flag = 0
     dpc = 100
     n_it = 0
+    dt = 1e-1
 
     pc_out = [pc]
     Tc_out = [Tc]
     MW_out = [MW]
-    dt_out = [0]
+    dt_out = [dt]
     mdot_ox_out = [mdot_ox]
     mdot_throat_out = [mdot_throat]
     mdot_fuel_out = [mdot_fuel]
 
     print('n_it = ', n_it)
     print('flag = ',flag)
-    print('dpc = ',dpc)
+    print('Pressure variation = ',dpc)
 
-    while (flag == 0) & (dpc > 1e-6):
+    while (flag == 0) & (dpc > 1e-6) & (dt_out[-1] < 10):
         n_it += 1
         pc_old = pc
-        pc, flag, dt, Tc, MW = update_chamberpressure(pc, Tc, MW, Ab, mdot_ox, mdot_fuel,
-                                          mdot_throat, Vol_chamber_i, Ainj, Aport,
-                               eps, ptank, Ttank, CD, a, n, rho_fuel, oxidizer, fuel, pamb, gamma)
+
+        pc, flag = update_chamberpressure(pc, Tc, MW, mdot_ox, mdot_fuel, At, pamb, gamma)
 
         dpc = abs(pc - pc_old) / abs(pc_old)
 
         mdot_throat = injection.gas_injection_custom(pc, pamb, Tc, CD, gamma, MW) * At
-        mdot_ox = injection.massflow(ptank, pc, Ttank, CD, oxidizer["OxidizerCP"]) * Ainj
-        mdot_fuel = rho_fuel * Ab * a * (mdot_ox / Aport) ** n
+
+        (p_inj, mdot_ox, mdot_fuel, mdot, Gox, r, MR, Tc_CEA, MW_CEA, gamma_CEA, eps, cs,
+         CF_vac, CF, Ivac, Is, flag_performance) = (
+            performance.calculate_performance(Ainj, Aport, Ab, eps, ptank, Ttank, pc, CD,
+                                              a, n, rho_fuel, oxidizer, fuel, pamb))
+
+        Tc, MW, dt = update_Temperature_and_gasproperties(pc, Tc, MW, gamma, Tc_CEA, MW_CEA, gamma_CEA,
+                                             mdot_ox, mdot_fuel, mdot_throat, Vol_chamber)
 
         pc_out.append(pc)
         Tc_out.append(Tc)
@@ -241,7 +206,13 @@ if __name__ == '__main__':
 
     print('n_it = ', n_it)
     print('flag = ', flag)
-    print('dpc = ', dpc)
+    print('Pressure variation = ',dpc)
+
+    pc_mask = np.where(pc_out > 35e5)
+    pc_check = pc_out[pc_mask]
+    print('Average pc = ', np.average(pc_check))
+    print('Maximum pc = ', np.max(pc_check))
+    print('Minimum pc = ', np.min(pc_check))
 
     if flag == 1:
         print(pc)
