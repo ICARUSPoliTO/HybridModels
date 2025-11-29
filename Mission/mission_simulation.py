@@ -46,8 +46,9 @@ def update_Temperature_and_gasproperties(pc, Tc, MW, gamma, Tc_CEA, MW_CEA, gamm
     cp_CEA = gamma_CEA * R_CEA / (gamma_CEA - 1)
     Tc_actual =  ((cp / cp_CEA) * (m_c_i - dmc_out) * Tc + dmc_in * Tc_CEA) / m_c
     MW_actual = m_c / (((m_c_i - dmc_out) / MW) + (dmc_in / MW_CEA))
+    #gamma_actual = ADD!!!
 
-    return Tc_actual, MW_actual, dt
+    return Tc_actual, MW_actual, 'gamma_actual', dt
 
 
 def update_chamberpressure(pc_i, Tc_i, MW_i, mdot_ox_i, mdot_fuel_i, At, pamb=0.0, gamma0=1.3):
@@ -193,7 +194,7 @@ if __name__ == '__main__':
             performance.calculate_performance(Ainj, Aport, Ab, eps, ptank, Ttank, pc, CD,
                                               a, n, rho_fuel, oxidizer, fuel, pamb))
 
-        Tc, MW, dt = update_Temperature_and_gasproperties(pc, Tc, MW, gamma, Tc_CEA, MW_CEA, gamma_CEA,
+        Tc, MW, gamma, dt = update_Temperature_and_gasproperties(pc, Tc, MW, gamma, Tc_CEA, MW_CEA, gamma_CEA,
                                              mdot_ox, mdot_fuel, mdot_throat, Vol_chamber)
 
         pc_out.append(pc)
@@ -208,8 +209,8 @@ if __name__ == '__main__':
     print('flag = ', flag)
     print('Pressure variation = ',dpc)
 
-    pc_mask = np.where(pc_out > 35e5)
-    pc_check = pc_out[pc_mask]
+    pc_mask = np.where(np.asarray(pc_out) > 35e5)
+    pc_check = np.asarray(pc_out)[pc_mask]
     print('Average pc = ', np.average(pc_check))
     print('Maximum pc = ', np.max(pc_check))
     print('Minimum pc = ', np.min(pc_check))

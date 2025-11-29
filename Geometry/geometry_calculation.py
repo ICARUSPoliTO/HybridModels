@@ -23,6 +23,20 @@ def plot_polygon(x, y, title=None):
         plt.title(title)
     plt.show()
 
+def is_between(value, a, b):
+    """
+    Support function for checking if a value is between a and b
+    :param value: value to check
+    :param a: first side
+    :param b: second side
+    :return: Boolean
+    """
+    start = min([a, b])
+    end = max([a, b])
+
+    result = (value >= start and value <= end)
+    return result
+
 def create_regular_poligon(n_sides, circum_radius):
     """
     Generates a regular poligon inscripted in the circumference.
@@ -86,17 +100,19 @@ def translate_figure(x, y):
     y_translated = y - yG
     return x_translated, y_translated
 
-def sort_input(x, y):
+def sort_input(x, y, z=1):
     """
-    This function sorts the (x, y) inputs to be couterclock-wise.
+    This function sorts the (x, y) inputs to be couterclock-wise or clock-wise depending on z.
     Use it carefully because it may change the desired geometry.
     :param x: np.array of x values
     :param y: np.array of y values
+    :param z: z=1 counterclock, z=-1 clockwise
     :return: x_sorted, y_sorted
     """
     thetas = np.atan2(y, x)
     thetas[thetas < 0] += 2 * np.pi
 
+    thetas = thetas * z
     sorted_indices = np.argsort(thetas)
     x_sorted = x[sorted_indices]
     y_sorted = y[sorted_indices]
@@ -236,6 +252,12 @@ def calculate_surfaces_from_points(x, y, lc, step=0.0):
     return PortArea, BurningArea
 
 def burn_surface(x, y, z, regression_rate, dt):
+
+    x_moved = []
+    y_moved = []
+
+    regression = regression_rate * dt #[m]
+
     x2 = np.r_[x, x[0]]
     y2 = np.r_[y, y[0]]
 
@@ -245,8 +267,172 @@ def burn_surface(x, y, z, regression_rate, dt):
 
     dx = dx/dr
     dy = dy/dr
-    tangentials = np.vstack((dx, dy)).T
 
+    dx_before = np.r_[dx[-1], dx[:-1]]
+    dy_before = np.r_[dy[-1], dy[:-1]]
+    dr_before = np.r_[dr[-1], dy[:-1]]
+
+    tangentials = np.vstack((dx, dy)).T
+    tangentials_before = np.vstack((dx_before, dy_before)).T
+
+    normals = np.vstack((dy * z, -dx * z)).T
+    normals_before = np.vstack((dy_before * z, -dx_before * z)).T
+
+    Z = np.cross(normals_before, normals) * z
+
+    flag = 0
+    for idx in range(np.size(x)):
+        if flag == 0:
+            if Z[idx] >= -1e-6:
+
+                x_moved.append(x[idx] + regression * normals_before[idx, 0])
+                y_moved.append(y[idx] + regression * normals_before[idx, 1])
+
+                x_moved.append(x[idx] + regression * normals[idx, 0])
+                y_moved.append(y[idx] + regression * normals[idx, 1])
+
+            else:
+                costheta = -np.sum(tangentials[idx,:] * tangentials_before[idx,:])
+                tanhalftheta = np.sqrt( (1 - costheta) / (1 + costheta) )
+                h = regression / tanhalftheta
+
+                if dr_before[idx] < h:
+                    x_moved = x_moved[:-1]
+                    y_moved = y_moved[:-1]
+
+                if dr[idx] < h:
+                    if idx == np.size(x) - 1:
+                        x_moved = x_moved[1:]
+                        y_moved = y_moved[1:]
+                    else:
+                        flag = 1
+
+                x_moved.append(x[idx] + regression * normals[idx, 0] + h * tangentials[idx, 0])
+                y_moved.append(y[idx] + regression * normals[idx, 1] + h * tangentials[idx, 1])
+
+        else:
+            flag = 0
+
+    x_moved = np.array(x_moved)
+    y_moved = np.array(y_moved)
+
+    return x_moved, y_moved
+
+def burn_surface_v2(x, y, z, regression_rate, dt):
+
+    x_moved = []
+    y_moved = []
+
+    regression = regression_rate * dt #[m]
+
+    x2 = np.r_[x, x[0]]
+    y2 = np.r_[y, y[0]]
+
+    dx = np.diff(x2)
+    dy = np.diff(y2)
+    dr = np.hypot(dx, dy)
+
+    dx = dx/dr
+    dy = dy/dr
+
+    dx_before = np.r_[dx[-1], dx[:-1]]
+    dy_before = np.r_[dy[-1], dy[:-1]]
+    dr_before = np.r_[dr[-1], dr[:-1]]
+
+    tangentials = np.vstack((dx, dy)).T
+    tangentials_before = np.vstack((dx_before, dy_before)).T
+
+    normals = np.vstack((dy * z, -dx * z)).T
+    normals_before = np.vstack((dy_before * z, -dx_before * z)).T
+
+    Z = np.cross(normals_before, normals) * z
+
+    N = np.size(x)
+    exclude_mask = np.zeros(N, dtype=bool)
+
+    cusps = []
+    xcusps = []
+    ycusps = []
+
+    for idx in range(N):
+        if Z[idx] < -1e-6:
+            cusps.append(idx)
+
+            tangs = np.vstack((tangentials[idx:,:], tangentials[0:idx, :]))
+            norms = np.vstack((normals[idx:,:], normals[0:idx, :]))
+
+            tangs_before = np.vstack((tangentials_before[idx:, :], tangentials_before[0:idx, :]))
+            norms_before = np.vstack((normals_before[idx:, :], normals_before[0:idx, :]))
+
+            x_centered = np.r_[x[idx+1:], x[0:idx]]
+            y_centered = np.r_[y[idx+1:], y[0:idx]]
+
+            dx_centered = x_centered - x[idx]
+            dy_centered = y_centered - y[idx]
+            dr_centered = np.hypot(dx_centered, dy_centered)
+
+            next_idx = 0
+            before_idx = -1
+
+            costheta = -np.sum(tangs[next_idx, :] * tangs_before[before_idx, :])
+            try:
+                tanhalftheta = np.sqrt((1 - costheta) / (1 + costheta))
+                h = regression / tanhalftheta
+            except:
+                h = 0
+                break
+
+            while (h > dr_centered[next_idx]) or (h > dr_centered[before_idx]):
+                next_idx += 1
+                before_idx -= 1
+                costheta = np.clip(-np.sum(tangs[next_idx, :] * tangs_before[before_idx, :]))
+                try:
+                    tanhalftheta = np.sqrt((1 - costheta) / (1 + costheta))
+                    h = regression / tanhalftheta
+                except:
+                    h = 0
+                    break
+
+            if h > 0:
+                xcusps.append(x[idx] + regression * norms[next_idx, 0] + h * tangs[next_idx, 0])
+                ycusps.append(y[idx] + regression * norms[next_idx, 1] + h * tangs[next_idx, 1])
+            else:
+                xcusps.append(0.5 * (x[idx] + regression * norms[next_idx, 0] + dr_centered[next_idx] * tangs[next_idx, 0] +
+                                     x[idx] + regression * norms_before[before_idx, 0]  - dr_centered[before_idx] * tangs_before[before_idx, 0]))
+                ycusps.append(0.5 * (y[idx] + regression * norms[next_idx, 1] + dr_centered[next_idx] * tangs[next_idx, 1] +
+                                     y[idx] + regression * norms_before[before_idx, 1]  - dr_centered[before_idx] * tangs_before[before_idx, 1]))
+
+            x_keep = x_centered[next_idx:before_idx+1]
+
+            for j in range(N):
+                if x[j] not in x_keep:
+                    exclude_mask[j] = True
+
+    for idx in range(N):
+        if idx in cusps:
+            x_moved.append(xcusps[cusps.index(idx)])
+            y_moved.append(ycusps[cusps.index(idx)])
+
+        elif not exclude_mask[idx]:
+            if Z[idx] >= -1e-6:
+                x_moved.append(x[idx] + regression * normals_before[idx, 0])
+                y_moved.append(y[idx] + regression * normals_before[idx, 1])
+
+                x_moved.append(x[idx] + regression * normals[idx, 0])
+                y_moved.append(y[idx] + regression * normals[idx, 1])
+
+        else:
+            if Z[idx] >= -1e-6:
+                x_moved.append(x[idx] + regression * normals_before[idx, 0])
+                y_moved.append(y[idx] + regression * normals_before[idx, 1])
+
+                x_moved.append(x[idx] + regression * normals[idx, 0])
+                y_moved.append(y[idx] + regression * normals[idx, 1])
+
+    x_moved = np.array(x_moved)
+    y_moved = np.array(y_moved)
+
+    return x_moved, y_moved
 
 
 if __name__ == "__main__":
@@ -255,47 +441,69 @@ if __name__ == "__main__":
     step = 26.336  # passo elica [m]
     lc = step
     n_points_per_side = 50
+    n_sides = 6
 
-    # ---- Test 1: quadrato semplice ----
-    # definisco quadrato non centrato e punti in ordine casuale
-    #x_sq = np.array([2.0, 2.0, 0.0, 0.0])
-    #y_sq = np.array([0.0, 2.0, 2.0, 0.0])
-    x_sq, y_sq = create_regular_poligon(6, radius)
+    # ---- Test 1: poligono semplice ----
+    x_sq, y_sq = create_regular_poligon(n_sides, radius)
     # mischio gli indici per simulare input disordinato
     perm = np.random.permutation(len(x_sq))
     x_sq_shuffled = x_sq[perm]
     y_sq_shuffled = y_sq[perm]
 
-    print("==== TEST 1: Quadrato (lato=2) ====")
+    print(f"==== TEST 1: Poligono (lato={n_sides}) ====")
 
     # trasla e ordina
     x_t, y_t = translate_figure(x_sq_shuffled, y_sq_shuffled)
     x_s, y_s = sort_input(x_t, y_t)
 
-
     x_f, y_f = fill_borders(x_s, y_s, n_points_per_side)
+    x_f2, y_f2 = burn_surface(x_f, y_f, 1, 0.5, 1)
+
+    """
+    plt.figure()
+    plt.plot(x_f, y_f, 'b')
+    plt.plot(x_f2, y_f2, 'r')
+    plt.show()
+    """
 
     # calcolo superfici
     port_area, burning_area = calculate_surfaces_from_points(x_f, y_f, lc)
-    print(f"Quadrato: PortArea = {port_area:.6f} m^2 ; BurningArea (step=0) = {burning_area:.6f} m^2")
+    print(f"Poligono: PortArea = {port_area:.6f} m^2 ; BurningArea (step=0) = {burning_area:.6f} m^2")
     # atteso: PortArea ~ 4 (area quadrato lato 2), ma nota: funzione somma aree triangoli con origine -> area effettiva interna
     # per quadrato centrato l'area dovrebbe essere 4.0
 
     port_area4, burning_area4 = calculate_surfaces_from_points(x_f, y_f, lc, step)
-    print(f"Quadrato: PortArea = {port_area4:.6f} m^2 ; BurningArea (step={step:.3f}) = {burning_area4:.6f} m^2")
+    print(f"Poligono: PortArea = {port_area4:.6f} m^2 ; BurningArea (step={step:.3f}) = {burning_area4:.6f} m^2")
 
     # ---- Test 2: poligono irregolare (approssimazione cerchio) ----
     theta = np.linspace(0, 2 * np.pi, 50, endpoint=False)
-    r = 1.0 + 0.2 * np.cos(3 * theta)  # forma non convessa ma chiusa
-    x_poly = (r * np.cos(theta)) + 0.5  # traslato per test translate
-    y_poly = (r * np.sin(theta)) - 0.3
+    r = 1.0 + 0.2 * np.cos(10 * theta)  # forma non convessa ma chiusa
+    x_poly = (r * np.cos(theta))  # traslato per test translate
+    y_poly = (r * np.sin(theta))
 
     print("\n==== TEST 2: Poligono irregolare ====")
 
+    #x_t2, y_t2 = translate_figure(x_poly, y_poly)
+    #x_s2, y_s2 = sort_input(x_t2, y_t2)
+    x_s2, y_s2 = sort_input(x_poly, y_poly)
 
-    x_t2, y_t2 = translate_figure(x_poly, y_poly)
-    x_s2, y_s2 = sort_input(x_t2, y_t2)
+    plt.figure()
+    plt.plot(x_s2, y_s2, 'b')
 
+    x_s2b, y_s2b = burn_surface_v2(x_s2, y_s2, 1, 0.0005, 1)
+    plt.plot(x_s2b, y_s2b, 'r')
+
+    for times in range(3):
+        x_s2b, y_s2b = burn_surface(x_s2b, y_s2b, 1, 0.05, 1)
+        plt.plot(x_s2b, y_s2b, ['g', 'y', 'k'][times])
+
+    for times in range(3):
+        x_s2b, y_s2b = burn_surface(x_s2b, y_s2b, 1, 0.05, 1)
+        plt.plot(x_s2b, y_s2b, ['g', 'y', 'k'][times])
+
+    plt.show()
+
+    """
     port_area2, burning_area2 = calculate_surfaces_from_points(x_s2, y_s2, lc)
     print(f"Poligono: PortArea = {port_area2:.6f} m^2 ; BurningArea (step=0) = {burning_area2:.6f} m^2")
 
@@ -306,18 +514,19 @@ if __name__ == "__main__":
 
     # ---- Quick numeric checks: confronto area con shoelace ----
     def shoelace_area(x, y):
-        x = np.asarray(x);
+        x = np.asarray(x)
         y = np.asarray(y)
         x2 = np.r_[x, x[0]]
         y2 = np.r_[y, y[0]]
         return 0.5 * np.abs(np.sum(x2[:-1] * y2[1:] - x2[1:] * y2[:-1]))
-
+    
 
     area_shoelace_sq = shoelace_area(x_s, y_s)
     area_shoelace_poly = shoelace_area(x_s2, y_s2)
     print("\nConfronti con shoelace:")
-    print(f"Quadrato: PortArea (triangles) = {port_area:.6f}, Shoelace = {area_shoelace_sq:.6f}")
-    print(f"Poligono: PortArea (triangles) = {port_area2:.6f}, Shoelace = {area_shoelace_poly:.6f}")
+    print(f"Poligono regolare: PortArea (triangles) = {port_area:.6f}, Shoelace = {area_shoelace_sq:.6f}")
+    print(f"Poligono irregolare: PortArea (triangles) = {port_area2:.6f}, Shoelace = {area_shoelace_poly:.6f}")
+    """
 
     """
     plot_polygon(x_sq_shuffled, y_sq_shuffled, title='Quadrato (shuffled input)')
@@ -327,6 +536,7 @@ if __name__ == "__main__":
     plot_polygon(x_s2, y_s2, title='Poligono irregolare (translated + sorted CCW)')
     """
 
+    """
     # Assert ragionevoli (tolleranza)
     tol = 1e-6
     assert abs(port_area - area_shoelace_sq) < 1e-8 or abs(port_area - area_shoelace_sq) / max(area_shoelace_sq,
@@ -335,13 +545,16 @@ if __name__ == "__main__":
                                                                                                      1e-12) < 1e-6, "PortArea mismatch for polygon"
 
     print("\nTutti i test completati con successo.")
+    """
 
+    """
     x_inst = np.array([2.0, 2.0, 0.0])
     y_inst = np.array([0.0, 2.0, 2.0])
     x_rep, y_rep = create_repeated_instance(x_inst, y_inst, 2)
     plot_polygon(x_rep, y_rep, title='Poligono ripetuto')
     x_fillc, y_fillc = fill_borders_circumference(x_rep, y_rep, 50)
     plot_polygon(x_fillc, y_fillc, title='Poligono ripetuto')
+    """
 
 
 
