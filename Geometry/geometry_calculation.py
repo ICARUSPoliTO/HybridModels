@@ -251,188 +251,6 @@ def calculate_surfaces_from_points(x, y, lc, step=0.0):
 
     return PortArea, BurningArea
 
-def burn_surface(x, y, z, regression_rate, dt):
-
-    x_moved = []
-    y_moved = []
-
-    regression = regression_rate * dt #[m]
-
-    x2 = np.r_[x, x[0]]
-    y2 = np.r_[y, y[0]]
-
-    dx = np.diff(x2)
-    dy = np.diff(y2)
-    dr = np.hypot(dx, dy)
-
-    dx = dx/dr
-    dy = dy/dr
-
-    dx_before = np.r_[dx[-1], dx[:-1]]
-    dy_before = np.r_[dy[-1], dy[:-1]]
-    dr_before = np.r_[dr[-1], dy[:-1]]
-
-    tangentials = np.vstack((dx, dy)).T
-    tangentials_before = np.vstack((dx_before, dy_before)).T
-
-    normals = np.vstack((dy * z, -dx * z)).T
-    normals_before = np.vstack((dy_before * z, -dx_before * z)).T
-
-    Z = np.cross(normals_before, normals) * z
-
-    flag = 0
-    for idx in range(np.size(x)):
-        if flag == 0:
-            if Z[idx] >= -1e-6:
-
-                x_moved.append(x[idx] + regression * normals_before[idx, 0])
-                y_moved.append(y[idx] + regression * normals_before[idx, 1])
-
-                x_moved.append(x[idx] + regression * normals[idx, 0])
-                y_moved.append(y[idx] + regression * normals[idx, 1])
-
-            else:
-                costheta = -np.sum(tangentials[idx,:] * tangentials_before[idx,:])
-                tanhalftheta = np.sqrt( (1 - costheta) / (1 + costheta) )
-                h = regression / tanhalftheta
-
-                if dr_before[idx] < h:
-                    x_moved = x_moved[:-1]
-                    y_moved = y_moved[:-1]
-
-                if dr[idx] < h:
-                    if idx == np.size(x) - 1:
-                        x_moved = x_moved[1:]
-                        y_moved = y_moved[1:]
-                    else:
-                        flag = 1
-
-                x_moved.append(x[idx] + regression * normals[idx, 0] + h * tangentials[idx, 0])
-                y_moved.append(y[idx] + regression * normals[idx, 1] + h * tangentials[idx, 1])
-
-        else:
-            flag = 0
-
-    x_moved = np.array(x_moved)
-    y_moved = np.array(y_moved)
-
-    return x_moved, y_moved
-
-def burn_surface_v2(x, y, z, regression_rate, dt):
-
-    x_moved = []
-    y_moved = []
-
-    regression = regression_rate * dt #[m]
-
-    x2 = np.r_[x, x[0]]
-    y2 = np.r_[y, y[0]]
-
-    dx = np.diff(x2)
-    dy = np.diff(y2)
-    dr = np.hypot(dx, dy)
-
-    dx = dx/dr
-    dy = dy/dr
-
-    dx_before = np.r_[dx[-1], dx[:-1]]
-    dy_before = np.r_[dy[-1], dy[:-1]]
-    dr_before = np.r_[dr[-1], dr[:-1]]
-
-    tangentials = np.vstack((dx, dy)).T
-    tangentials_before = np.vstack((dx_before, dy_before)).T
-
-    normals = np.vstack((dy * z, -dx * z)).T
-    normals_before = np.vstack((dy_before * z, -dx_before * z)).T
-
-    Z = np.cross(normals_before, normals) * z
-
-    N = np.size(x)
-    exclude_mask = np.zeros(N, dtype=bool)
-
-    cusps = []
-    xcusps = []
-    ycusps = []
-
-    for idx in range(N):
-        if Z[idx] < -1e-6:
-            cusps.append(idx)
-
-            tangs = np.vstack((tangentials[idx:,:], tangentials[0:idx, :]))
-            norms = np.vstack((normals[idx:,:], normals[0:idx, :]))
-
-            tangs_before = np.vstack((tangentials_before[idx:, :], tangentials_before[0:idx, :]))
-            norms_before = np.vstack((normals_before[idx:, :], normals_before[0:idx, :]))
-
-            x_centered = np.r_[x[idx+1:], x[0:idx]]
-            y_centered = np.r_[y[idx+1:], y[0:idx]]
-
-            dx_centered = x_centered - x[idx]
-            dy_centered = y_centered - y[idx]
-            dr_centered = np.hypot(dx_centered, dy_centered)
-
-            next_idx = 0
-            before_idx = -1
-
-            costheta = -np.sum(tangs[next_idx, :] * tangs_before[before_idx, :])
-            try:
-                tanhalftheta = np.sqrt((1 - costheta) / (1 + costheta))
-                h = regression / tanhalftheta
-            except:
-                h = 0
-                break
-
-            while (h > dr_centered[next_idx]) or (h > dr_centered[before_idx]):
-                next_idx += 1
-                before_idx -= 1
-                costheta = np.clip(-np.sum(tangs[next_idx, :] * tangs_before[before_idx, :]))
-                try:
-                    tanhalftheta = np.sqrt((1 - costheta) / (1 + costheta))
-                    h = regression / tanhalftheta
-                except:
-                    h = 0
-                    break
-
-            if h > 0:
-                xcusps.append(x[idx] + regression * norms[next_idx, 0] + h * tangs[next_idx, 0])
-                ycusps.append(y[idx] + regression * norms[next_idx, 1] + h * tangs[next_idx, 1])
-            else:
-                xcusps.append(0.5 * (x[idx] + regression * norms[next_idx, 0] + dr_centered[next_idx] * tangs[next_idx, 0] +
-                                     x[idx] + regression * norms_before[before_idx, 0]  - dr_centered[before_idx] * tangs_before[before_idx, 0]))
-                ycusps.append(0.5 * (y[idx] + regression * norms[next_idx, 1] + dr_centered[next_idx] * tangs[next_idx, 1] +
-                                     y[idx] + regression * norms_before[before_idx, 1]  - dr_centered[before_idx] * tangs_before[before_idx, 1]))
-
-            x_keep = x_centered[next_idx:before_idx+1]
-
-            for j in range(N):
-                if x[j] not in x_keep:
-                    exclude_mask[j] = True
-
-    for idx in range(N):
-        if idx in cusps:
-            x_moved.append(xcusps[cusps.index(idx)])
-            y_moved.append(ycusps[cusps.index(idx)])
-
-        elif not exclude_mask[idx]:
-            if Z[idx] >= -1e-6:
-                x_moved.append(x[idx] + regression * normals_before[idx, 0])
-                y_moved.append(y[idx] + regression * normals_before[idx, 1])
-
-                x_moved.append(x[idx] + regression * normals[idx, 0])
-                y_moved.append(y[idx] + regression * normals[idx, 1])
-
-        else:
-            if Z[idx] >= -1e-6:
-                x_moved.append(x[idx] + regression * normals_before[idx, 0])
-                y_moved.append(y[idx] + regression * normals_before[idx, 1])
-
-                x_moved.append(x[idx] + regression * normals[idx, 0])
-                y_moved.append(y[idx] + regression * normals[idx, 1])
-
-    x_moved = np.array(x_moved)
-    y_moved = np.array(y_moved)
-
-    return x_moved, y_moved
 
 
 if __name__ == "__main__":
@@ -440,7 +258,7 @@ if __name__ == "__main__":
     radius = 8
     step = 26.336  # passo elica [m]
     lc = step
-    n_points_per_side = 50
+    n_points_per_side = 100
     n_sides = 6
 
     # ---- Test 1: poligono semplice ----
@@ -457,14 +275,13 @@ if __name__ == "__main__":
     x_s, y_s = sort_input(x_t, y_t)
 
     x_f, y_f = fill_borders(x_s, y_s, n_points_per_side)
-    x_f2, y_f2 = burn_surface(x_f, y_f, 1, 0.5, 1)
+    x_f2, y_f2 = burn_surface_v4(x_f, y_f, 1, 0.5, 1)
 
-    """
     plt.figure()
     plt.plot(x_f, y_f, 'b')
-    plt.plot(x_f2, y_f2, 'r')
+    plt.plot(x_f2, y_f2, 'r', label='burned')
     plt.show()
-    """
+
 
     # calcolo superfici
     port_area, burning_area = calculate_surfaces_from_points(x_f, y_f, lc)
@@ -488,19 +305,20 @@ if __name__ == "__main__":
     x_s2, y_s2 = sort_input(x_poly, y_poly)
 
     plt.figure()
-    plt.plot(x_s2, y_s2, 'b')
+    plt.plot(x_s2, y_s2, 'b', label='original')
 
-    x_s2b, y_s2b = burn_surface_v2(x_s2, y_s2, 1, 0.0005, 1)
+    x_s2b, y_s2b = burn_surface_v4(x_s2, y_s2, 1, 0.05, 1)
     plt.plot(x_s2b, y_s2b, 'r')
 
-    for times in range(3):
-        x_s2b, y_s2b = burn_surface(x_s2b, y_s2b, 1, 0.05, 1)
+    for times in range(2):
+        x_s2b, y_s2b = burn_surface_v4(x_s2b, y_s2b, 1, 0.05, 1)
         plt.plot(x_s2b, y_s2b, ['g', 'y', 'k'][times])
 
-    for times in range(3):
-        x_s2b, y_s2b = burn_surface(x_s2b, y_s2b, 1, 0.05, 1)
+    for times in range(0):
+        x_s2b, y_s2b = burn_surface_v4(x_s2b, y_s2b, 1, 0.05, 1)
         plt.plot(x_s2b, y_s2b, ['g', 'y', 'k'][times])
 
+    plt.legend()
     plt.show()
 
     """
