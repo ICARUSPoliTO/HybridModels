@@ -6,6 +6,18 @@ import matplotlib.pyplot as plt
 import Geometry.geometry_calculation as geom
 
 def dimensionalize_geometry(x, y, Dp, Lc, p=0.0):
+    """
+    Function for dimensionalization of given geometry to respect Ap and Ab requirements while keeping same p/D
+    :param x: x values (filled)
+    :param y: y values (filled)
+    :param Dp: Equivalent port diameter wanted
+    :param Lc: Equivalent length of grain wanted
+    :param p: geometry step
+    :return: x_1: actual x values,
+             y_1: actual y values,
+             L_1: actual grain lenght,
+             p_1: actual step
+    """
     Ap_wanted, Ab_wanted = 0.25 * np.pi * (Dp**2), np.pi * Dp * Lc
     Ap_0, Ab_0 = geom.calculate_surfaces_from_points(x, y, p, p)
     Deq_0 = np.sqrt(4 * Ap_0 / np.pi)
@@ -20,6 +32,7 @@ def dimensionalize_geometry(x, y, Dp, Lc, p=0.0):
 
     Ap_1, Ab_1 = geom.calculate_surfaces_from_points(x_1, y_1, L_1, p_1)
 
+    """
     if np.isclose(Ap_1, Ap_wanted, rtol=0.001):
         print("Port area matches")
         print("Ap = ", Ap_1)
@@ -38,6 +51,7 @@ def dimensionalize_geometry(x, y, Dp, Lc, p=0.0):
         print("Burn area did not match")
         print("Ab = ", Ab_1)
         print("Ab wanted = ", Ab_wanted)
+    """
 
     return x_1, y_1, L_1, p_1
 
@@ -46,7 +60,7 @@ if __name__ == "__main__":
     x, y = geom.create_regular_poligon(6, 1)
     x, y = geom.fill_borders(x, y, 100)
     """
-    
+
     theta = np.linspace(0, 2 * np.pi, 50, endpoint=False)
     r = 1.0 + 0.2 * np.cos(10 * theta)  # forma non convessa ma chiusa
     x_poly = (r * np.cos(theta))  # traslato per test translate
