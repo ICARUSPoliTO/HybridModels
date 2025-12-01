@@ -2,8 +2,11 @@
 This script provides the functions to calculate the geometry of a fuel grain and the needed outputs:
     Port area, Burning area, Chamber volume
 """
+from xmlrpc.client import Boolean
+
 import numpy as np
 import matplotlib.pyplot as plt
+from numpy.random import normal
 
 
 def plot_polygon(x, y, title=None):
@@ -152,7 +155,7 @@ def fill_borders(x, y, n_points_per_side):
     return x_fill, y_fill
 
 
-def fill_borders_circumference(x, y, n_points_per_side):
+def fill_borders_circumference(x, y, n_points_per_side, tol = 1e-6):
     """
     Circular fill between (x, y) points if they have the same radius, or linear fill otherwise.
     :param x: x-axis points
@@ -160,45 +163,51 @@ def fill_borders_circumference(x, y, n_points_per_side):
     :param n_points_per_side: number of points between every x and y
     :return: x_fill, y_fill
     """
-    x2 = np.r_[x, x[0]]
-    y2 = np.r_[y, y[0]]
+    if np.asarray(x).size > 1:
+        x2 = np.r_[x, x[0]]
+        y2 = np.r_[y, y[0]]
 
-    x0 = x2[:-1]
-    y0 = y2[:-1]
-    x1 = x2[1:]
-    y1 = y2[1:]
+        x0 = x2[:-1]
+        y0 = y2[:-1]
+        x1 = x2[1:]
+        y1 = y2[1:]
 
-    t = np.linspace(0, 1, n_points_per_side + 1)[:-1]
-    dx = (x1 - x)[:, None]  # (N,1)
-    dy = (y1 - y)[:, None]  # (N,1)
+        t = np.linspace(0, 1, n_points_per_side + 1)[:-1]
+        dx = (x1 - x)[:, None]  # (N,1)
+        dy = (y1 - y)[:, None]  # (N,1)
 
-    r0 = np.hypot(x0, y0)
-    r1 = np.hypot(x1, y1)
-    same_r = np.isclose(r0, r1, atol=1e-12)
+        r0 = np.hypot(x0, y0)
+        r1 = np.hypot(x1, y1)
+        same_r = np.isclose(r0, r1, atol=tol)
 
-    theta0 = np.arctan2(y0, x0)  # (-pi, pi]
-    theta1 = np.arctan2(y1, x1)
-    delta = theta1 - theta0
-    delta = (delta + np.pi) % (2.0 * np.pi) - np.pi
+        theta0 = np.arctan2(y0, x0)  # (-pi, pi]
+        theta1 = np.arctan2(y1, x1)
+        delta = theta1 - theta0
+        delta = (delta + np.pi) % (2.0 * np.pi) - np.pi
 
-    t_row = t[None, :]  # (1,k)
+        t_row = t[None, :]  # (1,k)
 
-    xs_lin = x0[:, None] + dx * t_row
-    ys_lin = y0[:, None] + dy * t_row
+        xs_lin = x0[:, None] + dx * t_row
+        ys_lin = y0[:, None] + dy * t_row
 
-    r0_col = r0[:, None]
-    theta0_col = theta0[:, None]
-    delta_col = delta[:, None]
-    thetas = theta0_col + delta_col * t_row  # (N,k)
-    xs_circ = r0_col * np.cos(thetas)
-    ys_circ = r0_col * np.sin(thetas)
+        r0_col = r0[:, None]
+        theta0_col = theta0[:, None]
+        delta_col = delta[:, None]
+        thetas = theta0_col + delta_col * t_row  # (N,k)
+        xs_circ = r0_col * np.cos(thetas)
+        ys_circ = r0_col * np.sin(thetas)
 
-    mask = same_r[:, None]  # (N,1) broadcastable
-    xs_block = np.where(mask, xs_circ, xs_lin)
-    ys_block = np.where(mask, ys_circ, ys_lin)
+        mask = same_r[:, None]  # (N,1) broadcastable
+        xs_block = np.where(mask, xs_circ, xs_lin)
+        ys_block = np.where(mask, ys_circ, ys_lin)
 
-    x_fill = xs_block.ravel()
-    y_fill = ys_block.ravel()
+        x_fill = xs_block.ravel()
+        y_fill = ys_block.ravel()
+    else:
+        r = np.hypot(x, y)
+        thetas = t = np.linspace(0, 1, n_points_per_side + 1)[:-1] * 2 * np.pi
+        x_fill = r * np.cos(thetas)
+        y_fill = r * np.sin(thetas)
 
     return x_fill, y_fill
 
@@ -299,6 +308,38 @@ def remove_collinear_simple(x, y, tol=1e-12):
         # fallback: return original if too aggressive
         return x, y
     x_new = x[keep]; y_new = y[keep]
+    return x_new, y_new
+
+def remove_samearc_simple(x, y, tol=1e-12):
+    """
+    Rimuove punti sullo stesso arco consecutivi (semplice passaggio).
+    Mantiene ordine e chiusura logica.
+    """
+    x = np.asarray(x, dtype=float).ravel()
+    y = np.asarray(y, dtype=float).ravel()
+    if x.size < 3:
+        return x.copy(), y.copy()
+    # ensure closed indexing for checks
+    N = x.size
+    keep = []
+    for i in range(N):
+        im = (i-1) % N
+        ip = (i+1) % N
+        rm = np.hypot(x[im], y[im])
+        r = np.hypot(x[i], y[i])
+        rp = np.hypot(x[ip], y[ip])
+        # cross product
+
+        if not(np.isclose(r, rm, atol=tol) & np.isclose(r, rp, atol=tol)):
+            keep.append(i)
+
+    x_new = x[keep]; y_new = y[keep]
+    if x_new.size < 3:
+        try:
+            x_new, y_new = x[0], y[0]
+        except:
+            x_new, y_new = x, y
+
     return x_new, y_new
 
 def _line_intersection_from_dirs(pA, vA, pB, vB, eps=1e-12):
@@ -490,9 +531,15 @@ def burn_surface_v4(x, y, z, regression_rate, dt,
         if cusp_degenerate:
             # ignora la traslazione dei due lati i e ip1:
             # effettua l'intersezione tra i lati "prima" e "dopo" quelli considerati:
-            im = (i - 1) % n
-            ip2 = (ip1 + 1) % n
-
+            if (lenA <= Lmin) & (lenB <= Lmin):
+                im = (i - 1) % n
+                ip2 = (ip1 + 1) % n
+            elif lenA <= Lmin:
+                im = (i - 1) % n
+                ip2 = ip1
+            elif lenB <= Lmin:
+                im = i
+                ip2 = (ip1 + 1) % n
             # punti e direzioni per i lati di fallback (usiamo moved midpoints se disponibili)
             pA_fb = np.array([xM_moved[im], yM_moved[im]])
             vA_fb = tang[im]
@@ -657,7 +704,396 @@ def burn_surface_v4(x, y, z, regression_rate, dt,
     info["s_vals"] = s_vals
     info["t_vals"] = t_vals
 
-    return x_new, y_new, xM_moved[used_fallback], yM_moved[used_fallback]
+    return x_new, y_new, xM_moved, yM_moved
+
+
+def burn_surface_circular(x, y, z, regression_rate, dt,
+                    min_param=1e-9, parallel_dot_thresh=0.9999,
+                    close_tol=1e-12, merge_tol=1e-9):
+    """
+    Trasla i midpoint dei lati e trova le intersezioni tramite le tangenti.
+    - x,y: contorno (1D arrays, ordine poligono)
+    - z: +1/-1 per orientazione normale (normale = rotate tangente by +90 * z)
+    - regression_rate, dt -> d = regression_rate * dt
+    Returns: x_new, y_new
+    info contains diagnostics: conds, fallbacks, midpoints, moved_midpoints
+    """
+    info = {}
+    x = np.asarray(x, dtype=float).ravel()
+    y = np.asarray(y, dtype=float).ravel()
+
+    # 0) cleanup duplicates
+    x, y = remove_close_vertices(x, y, tol=close_tol)
+    x, y = remove_collinear_simple(x, y, tol=close_tol)
+    x, y = remove_samearc_simple(x, y, tol=close_tol)
+
+    if x.size > 2:
+        # 1) compute edges and midpoints
+        x2 = np.r_[x, x[0]];
+        y2 = np.r_[y, y[0]]
+
+        rads = np.hypot(x, y)
+        rads2 = np.hypot(x2, y2)
+
+        dx = np.diff(x2);
+        dy = np.diff(y2)
+        edge_len = np.hypot(dx, dy)
+        # protect division
+        edge_len_safe = edge_len.copy()
+        edge_len_safe[edge_len_safe == 0] = 1.0
+
+        # tangents unitari (da vertice i a i+1)
+        tx = dx / edge_len_safe
+        ty = dy / edge_len_safe
+        tang = np.column_stack((tx, ty))
+
+        mask_same_rad = np.zeros_like(x, dtype=bool)
+        for i in range(x.size):
+            if np.isclose(rads2[i], rads2[i+1], atol=close_tol):
+                mask_same_rad[i] = True
+
+        # midpoints dei lati
+        xM = 0.5 * (x2[:-1] + x2[1:])
+        yM = 0.5 * (y2[:-1] + y2[1:])
+
+        # --- assicurati che z sia per-edge ---
+        z = np.asarray(z).ravel()
+        if z.size == 1:
+            z = np.ones(xM.shape[0], dtype=float) * z[0]
+        elif z.size != xM.shape[0]:
+            # se z è per-vertice, converti a per-edge (es. take z at edge start)
+            if z.size == x.size:
+                z = z  # se vuoi usare per-vertex, mappa opportunamente
+            else:
+                z = np.resize(z, xM.shape[0])
+
+        # normals (rotate tangenti +90 deg) e applica z
+        normals = np.column_stack((ty * z, -tx * z))
+        # normalizza normals per sicurezza e gestisci edge quasi nulli
+        n_norm = np.hypot(normals[:, 0], normals[:, 1])
+        small_edge_mask = (edge_len < 1e-12)
+        n_norm[n_norm == 0] = 1.0
+        normals[:, 0] /= n_norm
+        normals[:, 1] /= n_norm
+
+    else:
+        try:
+            xM = x[0]
+            yM = y[0]
+        except IndexError:
+            xM = x
+            yM = y
+
+        mask_same_rad = np.ones_like(xM, dtype=bool)
+        normals = np.array([(xM / np.hypot(xM, yM)), (yM / np.hypot(xM, yM))])
+        tang = np.array([(- yM * z / np.hypot(xM, yM)), (xM * z / np.hypot(xM, yM))])
+
+    # forza direzione verso l'esterno usando il centroide
+    """
+    cx = np.mean(x)
+    cy = np.mean(y)
+    centroid = np.array([cx, cy])
+    for i_edge in range(normals.shape[0]):
+        mid = np.array([xM[i_edge], yM[i_edge]])
+        if np.dot(mid - centroid, normals[i_edge]) < 0:
+            normals[i_edge] *= -1.0
+    """
+
+    # 2) move midpoints along normals con clamp locale
+    d = float(regression_rate) * float(dt)
+    # clamp factor: frazione della lunghezza minima degli spigoli adiacenti
+    clamp_factor = 0.4
+    xM_moved = np.empty_like(xM)
+    yM_moved = np.empty_like(yM)
+    try:
+        xM_moved = xM + d * normals[:, 0]
+        yM_moved = yM + d * normals[:, 1]
+    except:
+        xM_moved = xM + d * normals[0]
+        yM_moved = yM + d * normals[1]
+    """
+    for i_edge in range(xM.size):
+        # calcola una d locale basata sulla lunghezza dell'edge
+        local_len = edge_len[i_edge] if edge_len[i_edge] > 0 else 1.0
+        d_local = min(d, clamp_factor * local_len)
+
+        # se edge troppo corto, evita spostamento e segnala
+        if small_edge_mask[i_edge]:
+            xM_moved[i_edge] = xM[i_edge]
+            yM_moved[i_edge] = yM[i_edge]
+        else:
+            xM_moved[i_edge] = xM[i_edge] + d_local * normals[i_edge, 0]
+            yM_moved[i_edge] = yM[i_edge] + d_local * normals[i_edge, 1]
+    """
+    n = np.asarray(xM_moved).size
+    x_new_list = []
+    y_new_list = []
+
+    conds = np.zeros(n, dtype=float)
+    used_fallback = np.zeros(n, dtype=bool)
+    s_vals = np.zeros(n, dtype=float)
+    t_vals = np.zeros(n, dtype=float)
+
+    # 3) for each adjacent pair compute intersection of lines along tangents
+    # Parametri aggiuntivi locali (regolabili)
+    # --- Nuovo ciclo di intersezione con controllo cuspidi e fallback su lati "prima" e "dopo" ---
+    miter_factor = 4.0
+    max_ray_factor = 10.0
+    clamp_factor = 0.4
+
+    x_new_list = []
+    y_new_list = []
+    conds = np.zeros(n, dtype=float)
+    used_fallback = np.zeros(n, dtype=bool)
+    s_vals = np.zeros(n, dtype=float)
+    t_vals = np.zeros(n, dtype=float)
+
+    for i in range(n):
+
+        if n > 2:
+            ip1 = (i + 1) % n
+        else:
+            x_new_list.append(xM_moved);
+            y_new_list.append(yM_moved)
+            continue
+
+        # punti e direzioni per i lati i e ip1 (moved midpoints)
+        pA = np.array([xM_moved[i], yM_moved[i]])
+        vA = tang[i]
+        pB = np.array([xM_moved[ip1], yM_moved[ip1]])
+        vB = tang[ip1]
+
+        # calcola angolo interno tra i due spigoli (usiamo -vA rispetto a vB)
+        # u = -tang[i] (verso il vertice comune), v = tang[ip1] (dal vertice in avanti)
+        u = -tang[i]
+        v = tang[ip1]
+        cosang = np.dot(u, v) / (np.linalg.norm(u) * np.linalg.norm(v) + 1e-15)
+        cosang = np.clip(cosang, -1.0, 1.0)
+        theta = np.arccos(cosang)  # angolo interno al vertice
+        theta_half = theta * 0.5
+
+        # calcola d_local per i e ip1 (clamp rispetto alle lunghezze locali)
+        lenA = edge_len[i] if edge_len[i] > 0 else 1.0
+        lenB = edge_len[ip1] if edge_len[ip1] > 0 else 1.0
+        """
+        d_local_A = min(d, clamp_factor * lenA)
+        d_local_B = min(d, clamp_factor * lenB)
+        # usa il valore più conservativo per la soglia
+        d_local = min(d_local_A, d_local_B)
+        """
+
+        # se theta_half è molto piccolo, tan può esplodere; proteggi
+        if theta_half < 1e-8:
+            tan_half = 1e8
+        else:
+            tan_half = np.tan(theta_half)
+
+        cross_product = (normals[i, 0] * normals[ip1, 1] - normals[i, 1] * normals[ip1, 0]) * z[i]
+
+        # soglia minima richiesta per i lati adiacenti change with d_local if you want Copilot version
+        Lmin = d / (tan_half + 1e-30)
+
+        # se uno dei due lati è troppo corto rispetto alla soglia => cuspide degenerata
+        cusp_degenerate = (lenA <= Lmin) or (lenB <= Lmin)
+
+        if cross_product > 0:
+            cusp_degenerate = False
+
+        if cusp_degenerate:
+            print('Degenerate cusp')
+            # ignora la traslazione dei due lati i e ip1:
+            # effettua l'intersezione tra i lati "prima" e "dopo" quelli considerati:
+            if (lenA <= Lmin) & (lenB <= Lmin):
+                im = (i - 1) % n
+                ip2 = (ip1 + 1) % n
+            elif lenA <= Lmin:
+                im = (i - 1) % n
+                ip2 = ip1
+            elif lenB <= Lmin:
+                im = i
+                ip2 = (ip1 + 1) % n
+
+            # punti e direzioni per i lati di fallback (usiamo moved midpoints se disponibili)
+            pA_fb = np.array([xM_moved[im], yM_moved[im]])
+            vA_fb = tang[im]
+            pB_fb = np.array([xM_moved[ip2], yM_moved[ip2]])
+            vB_fb = tang[ip2]
+
+            # se le tangenti di fallback sono quasi parallele, fallback alla media dei moved midpoints
+            dot_fb = abs(np.dot(vA_fb, vB_fb) / (np.linalg.norm(vA_fb) * np.linalg.norm(vB_fb) + 1e-15))
+            if dot_fb >= parallel_dot_thresh:
+                pt = 0.5 * (pA_fb + pB_fb)
+                used_fallback[i] = True
+                conds[i] = np.inf
+                s_vals[i] = np.nan;
+                t_vals[i] = np.nan
+            else:
+                ok_fb, pt_fb, s_fb, t_fb, cond_fb = _line_intersection_from_dirs(pA_fb, vA_fb, pB_fb, vB_fb)
+                conds[i] = cond_fb if np.isfinite(cond_fb) else np.inf
+                if ok_fb and np.isfinite(s_fb) and np.isfinite(t_fb):
+                    # accetta l'intersezione di fallback se ragionevole (non troppo lontana)
+                    distA_fb = np.hypot(*(pt_fb - pA_fb))
+                    distB_fb = np.hypot(*(pt_fb - pB_fb))
+                    max_miter_fb = miter_factor * min(edge_len[im], edge_len[ip2])
+                    if (distA_fb <= max_miter_fb and distB_fb <= max_miter_fb) or (s_fb >= 0 and t_fb >= 0):
+                        pt = pt_fb
+                        used_fallback[i] = False
+                        s_vals[i] = s_fb;
+                        t_vals[i] = t_fb
+                    else:
+                        pt = 0.5 * (pA_fb + pB_fb)
+                        used_fallback[i] = True
+                        s_vals[i] = s_fb;
+                        t_vals[i] = t_fb
+                else:
+                    pt = 0.5 * (pA_fb + pB_fb)
+                    used_fallback[i] = True
+                    s_vals[i] = s_fb if 's_fb' in locals() else np.nan
+                    t_vals[i] = t_fb if 't_fb' in locals() else np.nan
+
+            x_new_list.append(pt[0]);
+            y_new_list.append(pt[1])
+            # continua al prossimo i
+            continue
+
+        # --- caso normale: intersezione tra le tangenti dei moved midpoints i e ip1 ---
+        # fallback immediato se tangenti quasi parallele
+        dot = abs(np.dot(vA, vB) / (np.linalg.norm(vA) * np.linalg.norm(vB) + 1e-15))
+        if dot >= parallel_dot_thresh:
+            pt = 0.5 * (pA + pB)
+            x_new_list.append(pt[0]);
+            y_new_list.append(pt[1])
+            conds[i] = np.inf
+            used_fallback[i] = True
+            s_vals[i] = np.nan;
+            t_vals[i] = np.nan
+            continue
+
+        ok, pt, s, t, cond = _line_intersection_from_dirs(pA, vA, pB, vB)
+        conds[i] = cond if np.isfinite(cond) else np.inf
+
+        # limiti basati sulle lunghezze degli spigoli adiacenti
+        max_miter = miter_factor * min(lenA, lenB)
+        max_ray = max_ray_factor * min(lenA, lenB)
+
+        valid = False
+        if ok and np.isfinite(s) and np.isfinite(t):
+            distA = np.hypot(*(pt - pA))
+            distB = np.hypot(*(pt - pB))
+            if (s >= min_param and t >= min_param) and (distA <= max_miter and distB <= max_miter):
+                valid = True
+            else:
+                if (s >= 0.0 and t >= 0.0) and (distA <= max_ray and distB <= max_ray):
+                    valid = True
+
+        if not valid:
+            """
+            rAB = 0.5 * (pB - pA)
+            rAB_mod = np.hypot(rAB[0], rAB[1])
+            tAB_mod = - (rAB_mod**2) / (rAB[0] * abs(vA[0]) - rAB[1] * abs(vA[1]))
+            pt = pA + tAB_mod * vA
+            """
+            """
+            pt = 0.5 * (pA + pB)
+            r_pt = np.hypot(pt[0], pt[1])
+            pt = pt * (1 + 0.5* d / r_pt)
+            """
+            if cross_product > 1e-12:
+                if mask_same_rad[i]:
+                    pt = np.array([x[ip1], y[ip1]])
+                    pt = pt + normals[i, :] * d
+                elif mask_same_rad[ip1]:
+                    pt = np.array([x[ip1], y[ip1]])
+                    pt = pt + normals[ip1, :] * d
+                else:
+                    pt = np.array([x[ip1], y[ip1]])
+                    pt = pt + normals[i, :] * d
+                    x_new_list.append(pt[0]);
+                    y_new_list.append(pt[1])
+                    pt = np.array([x[ip1], y[ip1]])
+                    pt = pt + normals[ip1, :] * d
+            else:
+                pt = 0.5 * (pB + pA)
+
+            used_fallback[i] = True
+        else:
+            used_fallback[i] = False
+
+        x_new_list.append(pt[0]);
+        y_new_list.append(pt[1])
+        s_vals[i] = s if s is not None else np.nan
+        t_vals[i] = t if t is not None else np.nan
+
+    x_new = np.asarray(x_new_list, dtype=float)
+    y_new = np.asarray(y_new_list, dtype=float)
+
+    # 4) cleanup: remove near-duplicates and simple collinearities
+    x_new, y_new = remove_close_vertices(x_new, y_new, tol=close_tol)
+    x_new, y_new = remove_collinear_simple(x_new, y_new, tol=close_tol)
+
+    # 5) final safety: if result self-intersects badly, fallback to conservative midpoint shrink
+    def _has_self_intersection_local(xx, yy):
+        m = xx.size
+        if m < 4:
+            return False
+        pts = np.column_stack((xx, yy))
+        for a in range(m):
+            A = pts[a];
+            B = pts[(a + 1) % m]
+            for b in range(a + 2, m):
+                if (b + 1) % m == a:
+                    continue
+                C = pts[b];
+                D = pts[(b + 1) % m]
+
+                # simple segment intersection test
+                def orient(ax, ay, bx, by, cx, cy):
+                    return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
+
+                o1 = orient(A[0], A[1], B[0], B[1], C[0], C[1])
+                o2 = orient(A[0], A[1], B[0], B[1], D[0], D[1])
+                o3 = orient(C[0], C[1], D[0], D[1], A[0], A[1])
+                o4 = orient(C[0], C[1], D[0], D[1], B[0], B[1])
+                if o1 * o2 < 0 and o3 * o4 < 0:
+                    return True
+        return False
+
+    if _has_self_intersection_local(x_new, y_new):
+        # conservative fallback: shrink midpoints toward polygon centroid by factor 0.5 and recompute intersections
+        cx = np.mean(x);
+        cy = np.mean(y)
+        xM_shrunk = 0.5 * (xM + np.array([cx] * n))
+        yM_shrunk = 0.5 * (yM + np.array([cy] * n))
+        xM_moved = xM_shrunk + d * normals[:, 0]
+        yM_moved = yM_shrunk + d * normals[:, 1]
+        x_new_list = [];
+        y_new_list = []
+        for i in range(n):
+            ip1 = (i + 1) % n
+            pA = np.array([xM_moved[i], yM_moved[i]])
+            vA = tang[i]
+            pB = np.array([xM_moved[ip1], yM_moved[ip1]])
+            vB = tang[ip1]
+            ok, pt, s, t, cond = _line_intersection_from_dirs(pA, vA, pB, vB)
+            if not ok:
+                pt = 0.5 * (pA + pB)
+            x_new_list.append(pt[0]);
+            y_new_list.append(pt[1])
+        x_new = np.asarray(x_new_list);
+        y_new = np.asarray(y_new_list)
+        x_new, y_new = remove_close_vertices(x_new, y_new, tol=close_tol)
+        x_new, y_new = remove_collinear_simple(x_new, y_new, tol=close_tol)
+
+    # diagnostics
+    info["midpoints"] = np.column_stack((xM, yM))
+    info["moved_midpoints"] = np.column_stack((xM_moved, yM_moved))
+    info["tangents"] = tang
+    info["conds"] = conds
+    info["used_fallback"] = used_fallback
+    info["s_vals"] = s_vals
+    info["t_vals"] = t_vals
+
+    return x_new, y_new, xM_moved[mask_same_rad], yM_moved[mask_same_rad]
 
 
 if __name__ == "__main__":
@@ -714,7 +1150,7 @@ if __name__ == "__main__":
     x_s2b, y_s2b, xM, yM = burn_surface_v4(x_s2, y_s2, 1, 0.05, 1)
     plt.plot(x_s2b, y_s2b, 'r')
 
-    for crazy_times in range(100):
+    for crazy_times in range(0):
         for times in range(3):
             x_s2b, y_s2b, xM, yM = burn_surface_v4(x_s2b, y_s2b, 1, 0.05, 1)
             plt.plot(x_s2b, y_s2b, ['g', 'y', 'k'][times])
@@ -724,6 +1160,45 @@ if __name__ == "__main__":
         plt.plot(x_s2b, y_s2b, ['g', 'y', 'k'][times])
 
     plt.plot(xM, yM, 'ko')
+
+    plt.legend()
+    plt.show()
+
+    ed_instance = np.array([[0.17, -0.02],[0.5, -0.02],[0.5, 0.02],[0.17, 0.02]])
+
+    """
+    ed_points = np.array([[0.0237, 0.1683], [0.128, 0.911], [-0.128, 0.911], [-0.0237, 0.1683],
+                          [-0.1528, 0.0745], [-0.8269, 0.4033], [-0.906, 0.1598], [-0.1674, 0.0295],
+                          [-0.1181, -0.1223], [-0.6391, -0.6618], [-0.4319, -0.8123], [-0.0798, -0.1501],
+                          [0.0798, -0.1501], [0.4319, -0.8123], [0.6391, -0.6618], [0.1181, -0.1223],
+                          [0.1674, 0.0295], [0.906, 0.1598], [0.8269, 0.4033], [0.1528, 0.0745]])
+    """
+    ed_points_x, ed_points_y = create_repeated_instance(ed_instance[:,0], ed_instance[:,1], 5)
+    ed_centered_x, ed_centered_y = translate_figure(ed_points_x, ed_points_y)
+    #ed_centered_x, ed_centered_y = 0.2, 0
+
+    ed_filled_x, ed_filled_y = fill_borders_circumference(ed_centered_x, ed_centered_y, 10)
+
+    plt.figure()
+    plt.plot(ed_centered_x, ed_centered_y, 'bo-', label='ed original')
+
+    plt.figure()
+    plt.plot(ed_filled_x, ed_filled_y, 'b', label='ed original')
+
+    ed_burned_x, ed_burned_y, ed_xM, ed_yM = burn_surface_circular(ed_centered_x, ed_centered_y, 1, 0.05, 1)
+    plt.plot(ed_xM, ed_yM, 'ko')
+
+    ed_refilled_x, ed_refilled_y = fill_borders_circumference(ed_burned_x, ed_burned_y, 100)
+
+    for times in range(500):
+        ed_burned_x, ed_burned_y, ed_xM, ed_yM = burn_surface_circular(ed_burned_x, ed_burned_y, 1, 0.005, 1)
+
+        ed_refilled_x, ed_refilled_y = fill_borders_circumference(ed_burned_x, ed_burned_y, 100)
+        if times % 20 == 0:
+            plt.plot(ed_refilled_x, ed_refilled_y, 'y')
+
+    plt.plot(ed_refilled_x, ed_refilled_y, 'r')
+
 
     plt.legend()
     plt.show()
