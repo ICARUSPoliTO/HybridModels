@@ -251,7 +251,6 @@ def calculate_surfaces_from_points(x, y, lc, step=0.0):
 
     return PortArea, BurningArea
 
-
 # ---------- helper ----------
 def remove_close_vertices(x, y, tol=1e-12):
     pts = np.column_stack((np.asarray(x, float), np.asarray(y, float)))
@@ -263,7 +262,6 @@ def remove_close_vertices(x, y, tol=1e-12):
             keep.append(i)
     pts2 = pts[keep]
     return pts2[:, 0], pts2[:, 1]
-
 
 def remove_collinear_simple(x, y, tol=1e-12):
     """
@@ -292,7 +290,6 @@ def remove_collinear_simple(x, y, tol=1e-12):
     x_new = x[keep];
     y_new = y[keep]
     return x_new, y_new
-
 
 def remove_samearc_simple(x, y, tol=1e-12):
     """
@@ -327,7 +324,6 @@ def remove_samearc_simple(x, y, tol=1e-12):
 
     return x_new, y_new
 
-
 def _line_intersection_from_dirs(pA, vA, pB, vB, eps=1e-12):
     """
     Solve pA + s*vA = pB + t*vB for s,t.
@@ -351,7 +347,6 @@ def _line_intersection_from_dirs(pA, vA, pB, vB, eps=1e-12):
         s, t = float(sol[0]), float(sol[1])
         pt = pA + s * vA
         return True, pt, s, t, cond
-
 
 # ---------- main: burn_surface_v4 ----------
 def burn_surface(x, y, z, regression_rate, dt,
@@ -703,7 +698,6 @@ def burn_surface(x, y, z, regression_rate, dt,
     info["t_vals"] = t_vals
 
     return x_new, y_new
-
 
 def burn_surface_circular(x, y, z, regression_rate, dt,
                           min_param=1e-9, parallel_dot_thresh=0.9999,
@@ -1092,7 +1086,6 @@ def burn_surface_circular(x, y, z, regression_rate, dt,
 
     return x_new, y_new
 
-
 if __name__ == "__main__":
     #lc = 2  # lunghezza del grano [m]
     radius = 8
@@ -1127,7 +1120,6 @@ if __name__ == "__main__":
 
     plt.show()
 
-
     # calcolo superfici
     port_area, burning_area = calculate_surfaces_from_points(x_f, y_f, lc)
     print(f"Poligono: PortArea = {port_area:.6f} m^2 ; BurningArea (step=0) = {burning_area:.6f} m^2")
@@ -1152,12 +1144,12 @@ if __name__ == "__main__":
     plt.figure()
     plt.plot(x_s2, y_s2, 'b', label='original')
 
-    x_s2b, y_s2b = burn_surface(x_s2, y_s2, 1, 0.05, 1)
+    x_s2b, y_s2b = burn_surface_circular(x_s2, y_s2, 1, 0.05, 1)
     plt.plot(x_s2b, y_s2b, 'r')
 
     for crazy_time in range(100):
         for times in range(3):
-            x_s2b, y_s2b = burn_surface(x_s2b, y_s2b, 1, 0.05, 1)
+            x_s2b, y_s2b = burn_surface_circular(x_s2b, y_s2b, 1, 0.05, 1)
             if crazy_time % 20 == 0:
                 plt.plot(x_s2b, y_s2b, ['g', 'y', 'k'][times])
 
@@ -1219,7 +1211,23 @@ if __name__ == "__main__":
     plot_polygon(x_rep, y_rep, title='Poligono ripetuto')
     x_fillc, y_fillc = fill_borders_circumference(x_rep, y_rep, 50)
     plot_polygon(x_fillc, y_fillc, title='Poligono ripetuto')
+
+    x_bc, y_bc = burn_surface_circular(x_fillc, y_fillc, 1, 0.05, 1)
+    x_bfc, y_bfc = fill_borders_circumference(x_bc, y_bc, 50)
+
+    plt.figure()
+    plt.plot(x_fillc, y_fillc, 'b')
+    plt.plot(x_bfc, y_bfc)
+
+    for times in range(500):
+        x_bc, y_bc = burn_surface_circular(x_bc, y_bc, 1, 0.05, 1)
+        x_bfc, y_bfc = fill_borders_circumference(x_bc, y_bc, 50)
+        if times % 20 == 0:
+            plt.plot(x_bfc, y_bfc)
+
+    plt.show()
     """
+
 
 
 
