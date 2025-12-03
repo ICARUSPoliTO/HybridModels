@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 import Performance.performance_singlepoint as performance
 import Injection.PyInjection as injection
 
-
 def update_Temperature_and_gasproperties(pc, Tc, MW, gamma, Tc_CEA, MW_CEA, gamma_CEA,
                                          mdot_ox, mdot_fuel, mdot_throat, Vol_chamber):
     """
@@ -49,7 +48,6 @@ def update_Temperature_and_gasproperties(pc, Tc, MW, gamma, Tc_CEA, MW_CEA, gamm
     #gamma_actual = ADD!!!
 
     return Tc_actual, MW_actual, 'gamma_actual', dt
-
 
 def update_chamberpressure(pc_i, Tc_i, MW_i, mdot_ox_i, mdot_fuel_i, At, pamb=0.0, gamma0=1.3):
     """
@@ -94,21 +92,14 @@ def update_chamberpressure(pc_i, Tc_i, MW_i, mdot_ox_i, mdot_fuel_i, At, pamb=0.
 
         dF = (dfmpc - fmpc) / dpc
 
-        if abs(dF) < 1e-12:
-            print('dfmpc = ', dfmpc)
-            print('fmpc = ', fmpc)
-            break
-
         pc = pc - (fmpc / dF)
 
         dpc = 0
-
 
     if n_it == maxit:
         flag = 1
 
     return pc, flag
-
 
 if __name__ == '__main__':
     pc = 1e5

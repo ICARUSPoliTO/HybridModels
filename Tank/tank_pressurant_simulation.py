@@ -97,15 +97,14 @@ def starting_conditions(mL, T, ptank, ppress, Vtank, Vpress, propellant, pressur
 
     return sL, sG, spress, mG, mpress
 
-
-def do_one_step(mdotL, mdotG, sL, sG, spress, mL, mG, mpress, T_tank, propellant, pressurant, Vtank, Vpress, dt):
+def do_one_step(mdotL, mdotG, mdotpress, sL, sG, spress, mL, mG, mpress, T_tank, propellant, pressurant, Vtank, Vpress, dt):
     """
     This function performs the one step of the simulation with entropy conservation but it returns wrong outputs
     (the temperature drops too low).
-    Do not use it, instead use the previous functions to generate the tank and then iterate with
     costant pressure of the tank until the liquid is over.
     :param mdotL: Liquid mass flow [kg/s]
     :param mdotG: Pressurant mass flow [kg/s]
+    :param mdotpress: Pressurant mass flow [kg/s]
     :param sL: Liquid specific entropy [J/kgK]
     :param sG: Gas specific entropy [J/kgK]
     :param spress: Pressurant specific entropy [J/kgK]
@@ -131,7 +130,7 @@ def do_one_step(mdotL, mdotG, sL, sG, spress, mL, mG, mpress, T_tank, propellant
 
     mL_new = mL - mdotL*dt #[kg]
     mG_new = mG + mdotG*dt #[kg]
-    mpress_new = mpress - mdotG*dt #[kg]
+    mpress_new = mpress - mdotpress*dt #[kg]
 
     SL = sL * mL #[J/K]
     SG = sG * mG #[J/K]
@@ -145,6 +144,7 @@ def do_one_step(mdotL, mdotG, sL, sG, spress, mL, mG, mpress, T_tank, propellant
     spress_new = spress
     Spress_new = spress_new * mpress_new #[J/K]
     p_press_new = cp.PropsSI('P', 'D', rhopress_new, 'S', spress_new, pressurant)  # [Pa]
+    T_press_new = cp.PropsSI('T', 'D', rhopress_new, 'S', spress_new, pressurant)  # [K]
 
     rhoL = cp.PropsSI('D', 'T', T_tank, 'Q', 0, propellant) #[kg/m^3]
     VL_new = mL_new / rhoL #[m^3]
@@ -160,7 +160,7 @@ def do_one_step(mdotL, mdotG, sL, sG, spress, mL, mG, mpress, T_tank, propellant
     sL_new = SL_new / mL_new #[J/kgK]
     Ttank_new = cp.PropsSI('T','S', sL_new, 'P', ptank_new, propellant)  # [K]
 
-    return mL_new, mG_new, mpress_new, sL_new, sG_new, spress_new, ptank_new, Ttank_new, p_press_new
+    return mL_new, mG_new, mpress_new, sL_new, sG_new, spress_new, ptank_new, Ttank_new, p_press_new, T_press_new
 
 if __name__ == '__main__':
     T = 288
@@ -199,7 +199,7 @@ if __name__ == '__main__':
     T_out[0] = T
     ptank_out[0] = ptank
     ppress_out[0] = ppress
-    for i in I:
+    for i in I[1:]:
         inj.massflow(ptank, pc, T, CD)
         mdotL = inj.mdot * Ainj
         mdotG = Avent * injection.gas_injection(preg, ptank, T, CD, pressurant)

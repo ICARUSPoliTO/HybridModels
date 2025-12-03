@@ -88,7 +88,6 @@ def starting_conditions(m0, T0, Vtank, oxidizer):
 
     return ptank0, sL0, sV0, mL0, mV0, Q0, s0, S0
 
-
 def do_one_step(mdotL, mdotV, sL, sV, S, m, Q, oxidizer, Vtank, dt):
     """
     This function performs the one step of the tank simulation.
@@ -152,7 +151,6 @@ def do_one_step(mdotL, mdotV, sL, sV, S, m, Q, oxidizer, Vtank, dt):
         mV_new = m_new
 
     return m_new, mL_new, mV_new, Q_new, sL_new, sV_new, S_new, ptank_new, Ttank_new
-
 
 def full_tank_simulation(m, Q, T, oxidizer, pamb, pc, Ainj, CD, plim, Avent, CD_vent, dt, endtime, p0=1e5):
     Vtank = create_tank(m, Q, T, oxidizer, p0)

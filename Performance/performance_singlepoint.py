@@ -131,7 +131,6 @@ def calculate_performance(Ainj, Aport, Ab, eps, ptank, Ttank, pc, CD,
     return (p_inj, mdot_ox, mdot_fuel, mdot, Gox, r, MR, Tc, MW, gamma, eps_out, cs,
             CF_vac, CF, Ivac, Is, flag_performance)
 
-
 def pressure_fun(Ainj, Aport, At, Ab, eps, ptank, Ttank, pc, CD, a, n, rho_fuel, oxidizer, fuel, pamb=0.0, gamma0=1.3):
     """
     This function calculates the pressure function used for Finite Difference Newton-like method
@@ -179,7 +178,6 @@ def pressure_fun(Ainj, Aport, At, Ab, eps, ptank, Ttank, pc, CD, a, n, rho_fuel,
     else:
         Fpc = 1e8
     return Fpc
-
 
 if __name__ == "__main__":
     Dinj = 0.8  # [m]
