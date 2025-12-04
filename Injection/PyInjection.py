@@ -229,7 +229,7 @@ if __name__ == '__main__':
     mdot_SPI= np.zeros(np.shape(pinj))
     mdot_HEM= np.zeros(np.shape(pinj))
 
-    #print('M='+str(cp.PropsSI('MOLARMASS', ox.fluid)*1e3))
+    print('M='+str(cp.PropsSI('MOLARMASS', ox.fluid)*1e3))
     ox.massflow(pinj, pc, Ttank, 1)
     mdot = ox.mdot * ox.A
     rho = cp.PropsSI('D', 'P', 0.5*(pc+pinj), 'T', Ttank, ox.fluid)

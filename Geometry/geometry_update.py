@@ -847,17 +847,17 @@ def burn_grain(x, y, z, regression_rate, dt, circular=False,
                     close_tol=1e-12, merge_tol=1e-9):
     """
     Helper function for main mission script.
-    :param x:
-    :param y:
-    :param z:
-    :param regression_rate:
-    :param dt:
-    :param circular:
-    :param min_param:
-    :param parallel_dot_thresh:
-    :param close_tol:
-    :param merge_tol:
-    :return:
+    :param x: x-values [m]
+    :param y: y-values [m]
+    :param z: rotation axis (1: counter-clockwise; -1: clockwise)
+    :param regression_rate: regression rate [m/s]
+    :param dt: Time step [s]
+    :param circular: Bool
+    :param min_param: Tolerance for near-zero values
+    :param parallel_dot_thresh: Tolerance for scalar product to be collinear
+    :param close_tol: Tolerance for close points to be removed
+    :param merge_tol: Tolerance for points to be merged
+    :return: x_out, y_out
     """
     if circular:
         x_out, y_out = burn_surface_circular(x, y, z, regression_rate, dt,
