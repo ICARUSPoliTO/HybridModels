@@ -13,6 +13,50 @@ import Performance.performance_singlepoint as perf
 import Tank.tank_update as tank
 import Mission.chamber_update as chamber
 
+def find_nozzle_output(gamma, MW, Tc, pc, mdot_throat, pamb, At, eps):
+    R = 8314 / MW
+
+    pamb_pc = pamb / pc
+    fpamb = np.sqrt(2 * gamma * (pamb_pc**(2/gamma) - pamb_pc**((gamma+1)/gamma)) / (gamma - 1))
+    gammone = np.sqrt(gamma * (2 / (gamma + 1)) ** ((gamma + 1) / (gamma - 1)))
+
+    pe_pc_crit = (2 / (gamma + 1)) ** (gamma / (gamma - 1))
+
+    if ((pamb/pc) < pe_pc_crit) or (fpamb >= gammone/eps):
+        Me = 1.5
+
+        fMe_target = mdot_throat / (pc * At * eps / np.sqrt(R * Tc))
+
+        fMe = np.sqrt(gamma) * Me / np.sqrt((1 + 0.5 * (gamma - 1) * (Me ** 2)) ** ((gamma + 1) / (gamma - 1)))
+        dfMe = np.sqrt(gamma) * (1 / np.sqrt((1 + 0.5 * (gamma - 1) * (Me ** 2)) ** ((gamma + 1) / (gamma - 1)))
+                - 0.5 * (gamma + 1) * (Me ** 2) * ((1 + 0.5 * (gamma - 1) * (Me ** 2)) ** (2 / (gamma - 1))) /
+                                 ((1 + 0.5 * (gamma - 1) * (Me ** 2)) ** (1.5 * (gamma + 1) / (gamma - 1))))
+        feps = fMe - fMe_target
+        n_eps = 0
+        maxit_eps = 100
+        while (abs(feps) > 1e-12) & (n_eps < maxit_eps):
+            Me = Me - feps / dfMe
+            fMe = np.sqrt(gamma) * Me / np.sqrt((1 + 0.5 * (gamma - 1) * (Me ** 2)) ** ((gamma + 1) / (gamma - 1)))
+            dfMe = np.sqrt(gamma) * (1 / np.sqrt((1 + 0.5 * (gamma - 1) * (Me ** 2)) ** ((gamma + 1) / (gamma - 1)))
+                                     - 0.5 * (gamma + 1) * (Me ** 2) * (
+                                                 (1 + 0.5 * (gamma - 1) * (Me ** 2)) ** (2 / (gamma - 1))) /
+                                     ((1 + 0.5 * (gamma - 1) * (Me ** 2)) ** (1.5 * (gamma + 1) / (gamma - 1))))
+            feps = fMe - fMe_target
+
+            n_eps = n_eps + 1
+
+        Te = Tc / (1 + 0.5 * (gamma - 1) * (Me ** 2))
+        pe = pc / ((1 + 0.5 * (gamma - 1) * (Me ** 2)) ** (gamma / (gamma - 1)))
+        Ve = Me * np.sqrt(gamma * R * Te)
+
+    else:
+        pe = pamb
+        Te = Tc / (pc/pe)**(gamma / (gamma - 1))
+        Me = np.sqrt(2 * (Tc/Te - 1) / (gamma - 1))
+        Ve = Me * np.sqrt(gamma * R * Te)
+
+    return Me, Te, pe, Ve
+
 def get_starting_conditions(pamb, Tamb, rho_fuel,
                             x, y, Lc,
                             D_chamber, Vol_prechamber, Vol_postchamber,
@@ -180,7 +224,7 @@ def run_one_step_no_burn(pc, mdot_throat, Tc, MW, gamma, rho_fuel, pamb, ptank, 
                                                                           tol)
 
     pc = chamber.update_chamberpressure(m_c, Tc, MW, Vol_chamber)
-    mdot_throat = inj.gas_injection_custom(pc, pamb, Tc, 1, gamma, MW) * At
+    mdot_throat = inj.gas_injection_custom(pc, pamb, Tc, 1, gamma, MW, eps) * At
 
     ptank, Ttank, mL, entropies, masses, pressures, temperatures = tank.update_tank(mdot_ox, dt,
                                                                                     entropies, masses, volumes,
@@ -189,23 +233,7 @@ def run_one_step_no_burn(pc, mdot_throat, Tc, MW, gamma, rho_fuel, pamb, ptank, 
                                                                                     constant_pressure_tank)
     m_fuel = geomcalc.calculate_fuel_mass(Ap, Lc, D_chamber, rho_fuel)
 
-    Me = 1.8
-    gammone = np.sqrt(gamma * (2 / (gamma + 1)) ** ((gamma + 1) / (gamma - 1)))
-    fMe = np.sqrt(gamma) * Me * (1 + 0.5 * (gamma - 1) * (Me ** 2)) ** (-0.5 * (gamma + 1) / (gamma - 1))
-    feps = 1
-    n_eps = 0
-    maxit_eps = 100
-    while (abs(feps) > 1e-12) & (n_eps < maxit_eps):
-        Me = gammone * Me / (fMe * eps)
-        fMe = np.sqrt(gamma) * Me * (1 + 0.5 * (gamma - 1) * (Me ** 2)) ** (-0.5 * (gamma + 1) / (gamma - 1))
-        feps = eps - (gammone / fMe)
-
-        n_eps = n_eps + 1
-
-    Te = Tc / (1 + 0.5 * (gamma - 1) * (Me ** 2))
-    pe = pc / ((1 + 0.5 * (gamma - 1) * (Me ** 2)) ** (gamma / (gamma - 1)))
-    R = 8314 / MW
-    Ve = Me * np.sqrt(gamma * R * Te)
+    Me, Te, pe, Ve = find_nozzle_output(gamma, MW, Tc, pc, mdot_throat, pamb, At, eps)
 
     Thrust = rend_CF * (mdot_throat * Ve + (pe - pamb) * eps * At)
 
@@ -323,7 +351,7 @@ def run_one_step(pc, mdot_throat, Tc, MW, gamma, a, n, rho_fuel, pamb, ptank, Tt
                                                  mdot_ox, mdot_fuel, mdot_throat, Vol_chamber, tol)
 
     pc = chamber.update_chamberpressure(m_c, Tc, MW, Vol_chamber)
-    mdot_throat = inj.gas_injection_custom(pc, pamb, Tc, 1, gamma, MW) * At
+    mdot_throat = inj.gas_injection_custom(pc, pamb, Tc, 1, gamma, MW, eps) * At
 
     x, y = geom.burn_grain(x, y, z, r, dt, circular)
     Ap, Ab, Vol_chamber = geomcalc.fill_and_calculate_surfaces_and_volume(x, y, Lc, npointsperside, circular, pitch,
@@ -336,25 +364,7 @@ def run_one_step(pc, mdot_throat, Tc, MW, gamma, a, n, rho_fuel, pamb, ptank, Tt
                                                                                     oxidizer, pressurant,
                                                                                     constant_pressure_tank)
 
-    Me = 1.8
-    gammone = np.sqrt(gamma * (2 / (gamma + 1)) ** ((gamma + 1) / (gamma - 1)))
-    fMe = np.sqrt(gamma) * Me * (1 + 0.5 * (gamma - 1) * (Me ** 2)) ** (-0.5 * (gamma + 1) / (gamma - 1))
-    feps = 1
-    n_eps = 0
-    maxit_eps = 100
-    while (abs(feps) > 1e-12) & (n_eps < maxit_eps):
-        Me = gammone * Me / (fMe * eps)
-        fMe = np.sqrt(gamma) * Me * (1 + 0.5 * (gamma - 1) * (Me ** 2)) ** (-0.5 * (gamma + 1) / (gamma - 1))
-        feps = eps - (gammone / fMe)
-
-        n_eps = n_eps + 1
-
-    print(f"{n_eps}/{maxit_eps}")
-
-    Te = Tc / (1 + 0.5 * (gamma - 1) * (Me ** 2))
-    pe = pc / ((1 + 0.5 * (gamma - 1) * (Me ** 2)) ** (gamma / (gamma - 1)))
-    R = 8314 / MW
-    Ve = Me * np.sqrt(gamma * R * Te)
+    Me, Te, pe, Ve = find_nozzle_output(gamma, MW, Tc, pc, mdot_throat, pamb, At, eps)
 
     Thrust = rend_CF * (rend_cstar * mdot_throat * Ve + (pe - pamb) * eps * At)
     print("c* = ", cstar)
