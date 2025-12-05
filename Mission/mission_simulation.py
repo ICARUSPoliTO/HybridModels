@@ -571,7 +571,7 @@ if __name__ == '__main__':
             "Specific Enthalpy [kj/mol]": [-1860.6]
             }
 
-    eps = 6
+    eps = 4.5
     Dt = 0.04
     Dp = 0.06
     Dinj = 0.0101
