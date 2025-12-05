@@ -7,8 +7,8 @@ use RocketCEA package. Documentation at: https://rocketcea.readthedocs.io/en/lat
 Author: Cristian Casalanguida 2025
 """
 import os
-from rocketcea.cea_obj import CEA_Obj, add_new_fuel, add_new_oxidizer
-
+from rocketcea.cea_obj import add_new_fuel, add_new_oxidizer
+from rocketcea.cea_obj_w_units import CEA_Obj
 
 def runCEA(pc, MR, eps, oxCEA, fuelCEA):
     # Fuel(s)
@@ -67,15 +67,18 @@ def runCEA(pc, MR, eps, oxCEA, fuelCEA):
     add_new_fuel('NEWFUEL', newfuel)
 
     C = CEA_Obj(oxName="NEWOX", fuelName="NEWFUEL",
-                useFastLookup=0, makeOutput=0)
+                useFastLookup=0, makeOutput=0,
+                isp_units="sec", cstar_units="m/s", pressure_units="Pa", temperature_units="K")
 
-    Ivac, cs, Tc, M, g = C.get_IvacCstrTc_ThtMwGam(pc * 14.503773800722e-5, MR, eps)  # pc [psia]
+    Ivac, cs, Tc, M, g = C.get_IvacCstrTc_ThtMwGam(pc, MR, eps)
+
+    #Ivac, cs, Tc, M, g = C.get_IvacCstrTc_ThtMwGam(pc * 14.503773800722e-5, MR, eps)  # pc [psia]
 
 
     if Ivac != 0 and cs != 0:
 
-        cs = cs * 0.3048 #[ft/s] -> [m/s]
-        Tc = Tc * 5 / 9 #[°R] -> [K]
+        #cs = cs * 0.3048 #[ft/s] -> [m/s]
+        #Tc = Tc * 5 / 9 #[°R] -> [K]
 
         cfvac = (Ivac*9.81) / cs
 

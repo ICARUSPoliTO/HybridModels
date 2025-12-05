@@ -331,9 +331,9 @@ if __name__=="__main__":
     Ab = nport * np.pi * Dport * Lc
     """
 
-    Dport_Dt_range = np.arange(1.25,3.5,0.25)
-    Dinj_Dt_range = np.arange(0.01,0.8,0.01)
-    Lc_Dt_range = np.arange(1.5,5,0.5)
+    Dport_Dt_range = np.linspace(1.5,3.0,5)
+    Dinj_Dt_range = np.linspace(0.005,0.5,5)
+    Lc_Dt_range = np.linspace(2,4,5)
     #"""
 
     eps = "adapt"
@@ -414,9 +414,12 @@ if __name__=="__main__":
     print(Is_array)
 
     print(np.max(Is_array))
-    imax_flat = np.max(Is_array)
+    imax_flat = np.argmax(Is_array)
     imax, jmax, kmax = np.unravel_index(imax_flat, Is_array.shape)
     print(pc_array[imax, jmax, kmax])
+    print("Dp/Dt = ", Dport_Dt_range[imax])
+    print("Dinj/Dt = ", Dinj_Dt_range[jmax])
+    print("Lc/Dt = ", Lc_Dt_range[kmax])
     #"""
     print("runtime=     "+str(runtime)+"s")
 

@@ -189,17 +189,17 @@ def run_one_step_no_burn(pc, mdot_throat, Tc, MW, gamma, rho_fuel, pamb, ptank, 
                                                                                     constant_pressure_tank)
     m_fuel = geomcalc.calculate_fuel_mass(Ap, Lc, D_chamber, rho_fuel)
 
-    Me = 0
+    Me = 1.8
+    gammone = np.sqrt(gamma * (2 / (gamma + 1)) ** ((gamma + 1) / (gamma - 1)))
+    fMe = np.sqrt(gamma) * Me * (1 + 0.5 * (gamma - 1) * (Me ** 2)) ** (-0.5 * (gamma + 1) / (gamma - 1))
     feps = 1
     n_eps = 0
     maxit_eps = 100
     while (abs(feps) > 1e-12) & (n_eps < maxit_eps):
-        gammone = np.sqrt(gamma * (2 / (gamma + 1)) ** ((gamma + 1) / (gamma - 1)))
+        Me = gammone * Me / (fMe * eps)
         fMe = np.sqrt(gamma) * Me * (1 + 0.5 * (gamma - 1) * (Me ** 2)) ** (-0.5 * (gamma + 1) / (gamma - 1))
-
         feps = eps - (gammone / fMe)
 
-        Me = gammone * Me / (fMe * eps)
         n_eps = n_eps + 1
 
     Te = Tc / (1 + 0.5 * (gamma - 1) * (Me ** 2))
@@ -207,14 +207,17 @@ def run_one_step_no_burn(pc, mdot_throat, Tc, MW, gamma, rho_fuel, pamb, ptank, 
     R = 8314 / MW
     Ve = Me * np.sqrt(gamma * R * Te)
 
-    Thrust = rend_CF * mdot_throat * Ve + (pe - pamb) * eps * At
+    Thrust = rend_CF * (mdot_throat * Ve + (pe - pamb) * eps * At)
 
     performances = {"pc": pc, "pinj": p_inj, "dt": dt, "Thrust": Thrust,
                     "mdot_ox": mdot_ox, "mdot_fuel": mdot_fuel, "mdot": mdot, "mdot_throat": mdot_throat,
                     "Tc": Tc, "MW": MW, "gamma": gamma,
                     "eps": eps,
                     "x": x, "y": y, "Ap": Ap, "Ab": Ab, "Vol_chamber": Vol_chamber,
-                    "m_fuel": m_fuel, "mL": mL, "ptank": ptank, "Ttank": Ttank}
+                    "m_fuel": m_fuel, "mL": mL, "ptank": ptank, "Ttank": Ttank,
+                    "Me": Me, "Te": Te, "pe": pe, "pamb": pamb,
+                    "entropies": entropies, "masses": masses, "pressures": pressures,"temperatures": temperatures,
+                    "burn": False}
 
     return (pc, mdot_throat, Thrust, dt,
             Tc, MW, gamma, ptank, Ttank, eps,
@@ -333,7 +336,34 @@ def run_one_step(pc, mdot_throat, Tc, MW, gamma, a, n, rho_fuel, pamb, ptank, Tt
                                                                                     oxidizer, pressurant,
                                                                                     constant_pressure_tank)
 
-    Thrust = rend_cstar * rend_CF * cstar * CF * mdot_throat
+    Me = 1.8
+    gammone = np.sqrt(gamma * (2 / (gamma + 1)) ** ((gamma + 1) / (gamma - 1)))
+    fMe = np.sqrt(gamma) * Me * (1 + 0.5 * (gamma - 1) * (Me ** 2)) ** (-0.5 * (gamma + 1) / (gamma - 1))
+    feps = 1
+    n_eps = 0
+    maxit_eps = 100
+    while (abs(feps) > 1e-12) & (n_eps < maxit_eps):
+        Me = gammone * Me / (fMe * eps)
+        fMe = np.sqrt(gamma) * Me * (1 + 0.5 * (gamma - 1) * (Me ** 2)) ** (-0.5 * (gamma + 1) / (gamma - 1))
+        feps = eps - (gammone / fMe)
+
+        n_eps = n_eps + 1
+
+    print(f"{n_eps}/{maxit_eps}")
+
+    Te = Tc / (1 + 0.5 * (gamma - 1) * (Me ** 2))
+    pe = pc / ((1 + 0.5 * (gamma - 1) * (Me ** 2)) ** (gamma / (gamma - 1)))
+    R = 8314 / MW
+    Ve = Me * np.sqrt(gamma * R * Te)
+
+    Thrust = rend_CF * (rend_cstar * mdot_throat * Ve + (pe - pamb) * eps * At)
+    print("c* = ", cstar)
+    print("CF = ", CF)
+    print("mdot = ", mdot_throat)
+    print("F1 = ", cstar * CF * mdot_throat)
+    print("F2 = ", CF * pc * At)
+    print("F3 = ", Thrust)
+    #Thrust = rend_cstar * rend_CF * cstar * CF * mdot_throat
 
     performances = {"pc": pc, "pinj": p_inj, "dt": dt, "Thrust": Thrust,
                     "mdot_ox": mdot_ox, "mdot_fuel": mdot_fuel, "mdot": mdot, "mdot_throat": mdot_throat, "Gox": Gox,
@@ -342,7 +372,9 @@ def run_one_step(pc, mdot_throat, Tc, MW, gamma, a, n, rho_fuel, pamb, ptank, Tt
                     "eps": eps, "cstar": cstar, "CFvac": CFvac, "CF": CF, "Ivac": Ivac, "Is": Is,
                     "x": x, "y": y, "Ap": Ap, "Ab": Ab, "Vol_chamber": Vol_chamber,
                     "m_fuel": m_fuel, "mL": mL, "ptank": ptank, "Ttank": Ttank,
-                    "flag": flag}
+                    "Me": Me, "Te": Te, "pe": pe, "pamb": pamb,
+                    "entropies": entropies, "masses": masses, "pressures": pressures,"temperatures": temperatures,
+                    "flag": flag, "burn": True}
 
     return (pc, mdot_throat, Thrust, dt,
             Tc, MW, gamma, ptank, Ttank, eps,
@@ -422,13 +454,24 @@ def run_full_mission(burn_time, pamb, Tamb, a, n, rho_fuel,
                             oxidizer, pressurant,
                             pitch, circular, npointsperside, constant_pressure_tank)
 
+
     if mL == 0:
         full_gas_tank = True
     else:
         full_gas_tank = False
 
+    performances = {"pc": pc, "pinj": pc, "dt": 0.0, "Thrust": 0.0,
+                    "mdot_ox": 0.0, "mdot_fuel": 0.0, "mdot": 0.0, "mdot_throat": mdot_throat,
+                    "Tc": Tc, "MW": MW, "gamma": gamma,
+                    "eps": eps,
+                    "x": x, "y": y, "Ap": Ap, "Ab": Ab, "Vol_chamber": Vol_chamber,
+                    "m_fuel": m_fuel, "mL": mL, "ptank": ptank, "Ttank": Ttank,
+                    "Me": 0.0, "Te": Tc, "pe": pamb, "pamb": pamb,
+                    "entropies": entropies, "masses": masses, "pressures": pressures, "temperatures": temperatures,
+                    "burn": False}
+
     time = [0]
-    pc_out = [pc]
+    performances_out = [performances]
 
     conditions_no_burn = (mL > 0 or full_gas_tank) & (ptank > pc)
 
@@ -452,7 +495,7 @@ def run_full_mission(burn_time, pamb, Tamb, a, n, rho_fuel,
 
         conditions_no_burn = (mL > 0 or full_gas_tank) & (ptank > pc)
         time.append(time[-1] + dt)
-        pc_out.append(pc)
+        performances_out.append(performances)
 
     while conditions_burn & (time[-1] < (burn_time + delay_time)):
         (pc, mdot_throat, Thrust, dt,
@@ -473,7 +516,7 @@ def run_full_mission(burn_time, pamb, Tamb, a, n, rho_fuel,
         conditions_burn = ((mL > 0 or full_gas_tank) & (ptank > pc) &
                            (m_fuel > 0) & (np.max(np.hypot(x, y)) < 0.5 * D_chamber))
         time.append(time[-1] + dt)
-        pc_out.append(pc)
+        performances_out.append(performances)
 
     while conditions_no_burn:
         (pc, mdot_throat, Thrust, dt,
@@ -488,13 +531,13 @@ def run_full_mission(burn_time, pamb, Tamb, a, n, rho_fuel,
                      entropies, masses, volumes, pressures, temperatures, utilities,
                      CD,
                      oxidizer, pressurant,
-                     constant_pressure_tank, tol)
+                     rend_CF, constant_pressure_tank, tol)
 
         conditions_no_burn = (mL > 0 or full_gas_tank) & (ptank > pc)
         time.append(time[-1] + dt)
-        pc_out.append(pc)
+        performances_out.append(performances)
 
-    return time, pc_out
+    return time, performances_out
 
 if __name__ == '__main__':
 
@@ -519,16 +562,32 @@ if __name__ == '__main__':
             }
 
     eps = 6
-    Ainj = # [m^2]
-    At = # [m^2]
-    Lc = # [m]
-    D_chamber = 0.1 # [m]
+    Dt = 0.04
+    Dp = 0.06
+    Dinj = 0.0101
 
-    x = np.array([]) # [m]
+    Ainj = 0.25 * np.pi * (Dinj ** 2) # [m^2]
+    At = 0.25 * np.pi * (Dt ** 2) # [m^2]
+    Lc = 0.16 # [m]
+    D_chamber = 0.1 # [m]
+    Avent = 0 # [m^2]
+
+    x = np.array([0.5 * Dp]) # [m]
     y = np.array([0]) # [m]
     z = 1
     Vol_prechamber = 0
     Vol_postchamber = 0
+
+    mtank = 25 # [kg]
+    Q = 0.03
+    pressurant = None
+    ppress = 1e5
+    p0 = pamb
+    plim = None
+    masses, volumes, pressures, temperatures, constant_pressure_tank = (
+        tank.build_tank(mtank, Q, Tamb, oxidizer, pressurant, ppress, p0, plim))
+
+    utilities = {"CDvent": 0.75,"Avent": Avent, "CDpress": 0.9, "Apress": 0.0}
 
     CD = 0.8
     pressurant = None
@@ -538,10 +597,9 @@ if __name__ == '__main__':
     circular = True
     delay_time = 0.5 # [s]
     npointsperside = 50
-    constant_pressure_tank = False
     tol = 1e-3
 
-    time, pc_out = run_full_mission(burn_time, pamb, Tamb, a, n, rho_fuel,
+    time, performances_out = run_full_mission(burn_time, pamb, Tamb, a, n, rho_fuel,
                      eps, Ainj, At, Lc, D_chamber,
                      x, y, z,
                      Vol_prechamber, Vol_postchamber,
@@ -553,3 +611,42 @@ if __name__ == '__main__':
                      tol)
 
 
+    burn = [p["burn"] for p in performances_out]
+    pc = [p["pc"] for p in performances_out]
+    Tc = [p["Tc"] for p in performances_out]
+    pe = [p["pe"] for p in performances_out]
+    Te = [p["Te"] for p in performances_out]
+    Me = [p["Me"] for p in performances_out]
+    pamb = [p["pamb"] for p in performances_out]
+    Tc_CEA = [performances_out[i]["Tc_CEA"] for i, b in enumerate(burn) if b]
+    time_burn = [time[i] for i, b in enumerate(burn) if b]
+    Thrust = [p["Thrust"] for p in performances_out]
+
+
+    plt.figure()
+    plt.plot(time, pc, label="Pc")
+    plt.plot(time, pe, label="Pe")
+    plt.plot(time, pamb, label="P0")
+    plt.xlabel("Time [s]")
+    plt.ylabel("Pressure [Pa]")
+    plt.legend()
+
+    plt.figure()
+    plt.plot(time, Tc, label="Tc")
+    plt.plot(time_burn, Tc_CEA, label="Tc_CEA")
+    #plt.plot(time, Te, label="Te")
+    plt.xlabel("Time [s]")
+    plt.ylabel("Temperature [K]")
+    plt.legend()
+
+    plt.figure()
+    plt.plot(time, Me, label="Me")
+    plt.xlabel("Time [s]")
+    plt.ylabel("Mach Number")
+
+    plt.figure()
+    plt.plot(time, Thrust)
+    plt.xlabel("Time [s]")
+    plt.ylabel("Thrust [N]")
+
+    plt.show()

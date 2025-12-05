@@ -36,7 +36,7 @@ def create_propellant_tank(mp0, p0, T0, Q0, propellant, pressurant):
     This function creates a tank with pressurant at a given pressure.
     !!!
     WE NEED A CHECK IN INPUT PRESSURE BECAUSE:
-        if (Q0 < 1) & (p0 >= vapor pressure of propellant):
+        if (Q0 < 1) & (p0 > vapor pressure of propellant):
             correct
         elseif (Q0 < 1) & (p0 < vapor pressure of propellant):
             WE SHOULD HAVE A FULL GAS TANK -> WARN TO CHANGE FUNCTION (NO NEED OF PRESSURANT)
@@ -51,6 +51,7 @@ def create_propellant_tank(mp0, p0, T0, Q0, propellant, pressurant):
     :param propellant: Propellant CoolProp name
     :param pressurant: Pressurant CoolProp name
     :return: V_tank: Propellant tank volume [m^3]
+             V_liq: Liquid volume [m^3]
     """
 
     MM = cp.PropsSI('MOLARMASS', pressurant) / 1e-3 #[kg/kmol]
@@ -64,7 +65,7 @@ def create_propellant_tank(mp0, p0, T0, Q0, propellant, pressurant):
 
     V_tank = V_liq + V_ullage
 
-    return V_tank
+    return V_tank, V_liq
 
 def starting_conditions(mL, T, ptank, ppress, Vtank, Vpress, propellant, pressurant):
     """
@@ -170,7 +171,7 @@ if __name__ == '__main__':
     pressurant = "Helium"
 
     mL = 5
-    Q0 = 0.01
+    Q0 = 0.05
     propellant = "NitrousOxide"
 
     pc = 1e5
@@ -179,12 +180,12 @@ if __name__ == '__main__':
     Avent = np.pi * 0.25 * (12e-3)**2
     inj = injection.Injector(propellant)
 
-    Vtank = create_propellant_tank(mL, ptank, T, Q0, propellant, pressurant)
-    Vpress = create_pressurant_tank(T, ppress, Vtank, ptank, pressurant)
+    Vtank, V_liq = create_propellant_tank(mL, ptank, T, Q0, propellant, pressurant)
+    Vpress = create_pressurant_tank(T, ppress, V_liq, ptank, pressurant)
 
     sL, sG, spress, mG, mpress = starting_conditions(mL, T, ptank, ppress, Vtank, Vpress, propellant, pressurant)
 
-    dt = 1e-2
+    dt = 1e-3
     I = np.arange(100)
     mL_out = np.zeros(len(I))
     mG_out = np.zeros(len(I))
@@ -192,25 +193,28 @@ if __name__ == '__main__':
     ptank_out = np.zeros(len(I))
     ppress_out = np.zeros(len(I))
     T_out = np.zeros(len(I))
+    Tpress_out = np.zeros(len(I))
 
     mL_out[0] = mL
     mG_out[0] = mG
     mpress_out[0] = mpress
     T_out[0] = T
+    Tpress_out[0] = T
     ptank_out[0] = ptank
     ppress_out[0] = ppress
     for i in I[1:]:
         inj.massflow(ptank, pc, T, CD)
         mdotL = inj.mdot * Ainj
         mdotG = Avent * injection.gas_injection(preg, ptank, T, CD, pressurant)
+        mdotpress = mdotG
 
-        mL, mG, mpress, sL, sG, spress, ptank, T, ppress = (
-            do_one_step(mdotL, mdotG, sL, sG, spress, mL, mG, mpress, T, propellant, pressurant, Vtank, Vpress, dt))
+        mL, mG, mpress, sL, sG, spress, ptank, T, ppress, Tpress = do_one_step(mdotL, mdotG, mdotpress, sL, sG, spress, mL, mG, mpress, T, propellant, pressurant, Vtank, Vpress, dt)
 
         mL_out[i] = mL
         mG_out[i] = mG
         mpress_out[i] = mpress
         T_out[i] = T
+        Tpress_out[i] = Tpress
         ptank_out[i] = ptank
         ppress_out[i] = ppress
 
@@ -226,6 +230,7 @@ if __name__ == '__main__':
 
     plt.figure()
     plt.plot(I, T_out, 'b-', label='T')
+    plt.plot(I, Tpress_out, 'r-', label='T press')
     plt.legend()
 
     plt.figure()

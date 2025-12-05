@@ -4,9 +4,53 @@ This script provides the functions to update the tank properties.
 
 import numpy as np
 import matplotlib.pyplot as plt
+import CoolProp.CoolProp as cp
 import Injection.PyInjection as injection
 import Tank.tank_simulation as normal_tank
 import Tank.tank_pressurant_simulation as pressurised_tank
+
+def build_tank(m, Q, T, oxidizer, pressurant=None, ppress=1e5, p=1e5, plim=None):
+    try:
+        # If calculation performs, fluid isn't super-critic, liquid phase exists
+        pV = cp.PropsSI('P', 'T', T, 'Q', 1, oxidizer["OxidizerCP"])
+    except ValueError:
+        # If calculation doesn't perform, sets Vapor pressure very high
+        Q = 1
+        pV = 100 * p
+
+    if Q >= 1: # If full gas requested
+        # If calculation performed and (p >= pV), (Q < 1), so we set (Q = 0.05)
+        if p >= pV:
+            p = pV
+
+    if (Q < 1) & (p > pV):
+        constant_pressure_tank = True
+        if plim is None:
+            plim = 1.5 * p
+    else:
+        constant_pressure_tank = False
+        if (Q >= 1) & (plim is None):
+            plim = 1.5 * p
+        elif (Q < 1) & (plim is None):
+            plim = 1.5 * pV
+
+    if not constant_pressure_tank:
+        Vtank = normal_tank.create_tank(m, Q, T, oxidizer, p)
+
+        masses = {"m": m}
+        volumes = {"Vtank": Vtank}
+        temperatures = {"Ttank": T}
+        pressures = {"plim": plim}
+    else:
+        Vtank, Vliq = pressurised_tank.create_propellant_tank(m, p, T, Q, oxidizer["OxidizerCP"], pressurant)
+        Vpress = pressurised_tank.create_pressurant_tank(T, ppress, Vliq, p, pressurant)
+
+        masses = {"mL": m}
+        volumes = {"Vtank": Vtank, "Vpress": Vpress}
+        pressures = {"ppress": ppress, "ptank": p, "plim": plim}
+        temperatures = {"Tpress": T, "Ttank": T}
+
+    return masses, volumes, pressures, temperatures, constant_pressure_tank
 
 def start_conditions(masses, volumes, pressures, temperatures,
                      oxidizer, pressurant=None, constant_pressure_tank = False):
@@ -63,7 +107,7 @@ def start_conditions(masses, volumes, pressures, temperatures,
 
         Ttank = temperatures["Ttank"]
 
-        ptank, sL, sV, mL, mG, Q, s, S = normal_tank.starting_conditions(m, Ttank, Vtank, oxidizer)
+        ptank, sL, sG, mL, mG, Q, s, S = normal_tank.starting_conditions(m, Ttank, Vtank, oxidizer)
 
         entropies_out = {"sL": sL, "sG": sG, "S": S}
         masses_out = {"m": m, "Q": Q, "mL": mL, "mG": mG}
@@ -135,7 +179,7 @@ def update_tank(mdotL, dt, entropies, masses, volumes, pressures, temperatures,
                                          Ttank, oxidizer["OxidizerCP"], pressurant, Vtank, Vpress, dt))
 
         entropies_out = {"sL": sL_new, "sG": sG_new, "spress": spress_new}
-        masses_out = {"mL": mL_new, "mG": mG_new, "mpress": mpress_new}
+        masses_out = {"mL": mL_new, "mG": mG_new, "mpress": mpress_new, "mdot_vent": mdotG2}
         pressures_out = {"ppress": ppress_new, "ptank": ptank_new, "plim": plim}
         temperatures_out = {"Tpress": Tpress_new, "Ttank": Ttank_new}
 
@@ -163,7 +207,7 @@ def update_tank(mdotL, dt, entropies, masses, volumes, pressures, temperatures,
 
         entropies_out = {"sL": sL_new, "sG": sG_new, "S": S_new}
         masses_out = {"m": m_new, "Q": Q_new, "mL": mL_new, "mG": mG_new}
-        pressures_out = {"ptank": ptank_new, "plim": plim}
+        pressures_out = {"ptank": ptank_new, "plim": plim, "mdot_vent": mdotG}
         temperatures_out = {"Ttank": Ttank_new}
 
     return ptank_new, Ttank_new, mL_new, entropies_out, masses_out, pressures_out, temperatures_out

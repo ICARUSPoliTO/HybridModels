@@ -151,8 +151,12 @@ def fill_borders_circumference(x, y, n_points_per_side):
     :param n_points_per_side: number of points between every x and y
     :return: x_fill, y_fill
     """
-    x2 = np.r_[x, x[0]]
-    y2 = np.r_[y, y[0]]
+    try:
+        x2 = np.r_[x, x[0]]
+        y2 = np.r_[y, y[0]]
+    except IndexError:
+        x2 = np.r_[x, x]
+        y2 = np.r_[y, y]
 
     x0 = x2[:-1]
     y0 = y2[:-1]
@@ -170,7 +174,11 @@ def fill_borders_circumference(x, y, n_points_per_side):
     theta0 = np.arctan2(y0, x0)  # (-pi, pi]
     theta1 = np.arctan2(y1, x1)
     delta = theta1 - theta0
+
     delta = (delta + np.pi) % (2.0 * np.pi) - np.pi
+
+    if delta == 0:
+        delta = np.array([2 * np.pi])
 
     t_row = t[None, :]  # (1,k)
 
@@ -293,4 +301,14 @@ def calculate_fuel_mass(Ap, lc, D_chamber, fuel_density):
     mfuel = remaining_volume * fuel_density
 
     return mfuel
+
+if __name__ == '__main__':
+    Ap, Ab, Vol = fill_and_calculate_surfaces_and_volume(np.array([0.03]), np.array([0.0]), 1, 20, True)
+
+    print(Ap, Ab, Vol)
+
+
+
+
+
 # end of file

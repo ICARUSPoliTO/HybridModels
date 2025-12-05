@@ -117,3 +117,18 @@ def Dp2Rocket(Dp, Dinj_Dt, Dp_Dt, Lc_Dt, mdot_ox_Dtsq, mdot_fuel_Dtsq, mdot_Dtsq
     mdot = mdot_Dtsq * (Dt ** 2)
 
     return Dt, Dinj, Lc, mdot_ox, mdot_fuel, mdot
+
+if __name__ == '__main__':
+    Dp_Dt = 1.5
+    Dinj_Dt = 0.2525
+    Lc_Dt = 4.0
+
+    Dt = 0.04
+    Dp = Dp_Dt * Dt
+    Dinj = Dinj_Dt * Dt
+    Lc = Lc_Dt * Dt
+
+    print("Dt = ", Dt)
+    print("Dp = ", Dp)
+    print("Dinj = ", Dinj)
+    print("Lc = ", Lc)

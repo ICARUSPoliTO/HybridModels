@@ -30,6 +30,11 @@ def create_tank(m, Q, T, oxidizer, p=1e5):
     :param p: Pressure (optional) [Pa]
     :return: Tank volume [m^3]
     """
+    try:
+        cp.PropsSI('P', 'T', T, 'Q', 1, oxidizer["OxidizerCP"])
+    except ValueError:
+        Q = 1
+
     if Q < 1:
         rhoL = cp.PropsSI('D', 'T', T, 'Q', 0, oxidizer["OxidizerCP"])  # [kg/m^3]
         rhoV = cp.PropsSI('D', 'T', T, 'Q', 1, oxidizer["OxidizerCP"])  # [kg/m^3]
