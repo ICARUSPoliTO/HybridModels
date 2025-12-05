@@ -119,7 +119,7 @@ def gas_injection_custom(p1, p2, T, CD, gamma, M, eps=1.0):
         if ((p2 / p1) < pe_pc_crit) or (fpe >= gammone/eps): # Is critical?
             mdot = mdot * gammone
         else:
-            mdot= mdot * fpe
+            mdot= mdot * fpe * eps
     else:
         mdot = 0
 

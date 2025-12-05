@@ -366,12 +366,12 @@ def run_one_step(pc, mdot_throat, Tc, MW, gamma, a, n, rho_fuel, pamb, ptank, Tt
 
     Me, Te, pe, Ve = find_nozzle_output(gamma, MW, Tc, pc, mdot_throat, pamb, At, eps)
 
-    Thrust = rend_CF * (rend_cstar * mdot_throat * Ve + (pe - pamb) * eps * At)
+    Thrust = rend_cstar * rend_CF * (mdot_throat * Ve + (pe - pamb) * eps * At)
     print("c* = ", cstar)
     print("CF = ", CF)
     print("mdot = ", mdot_throat)
-    print("F1 = ", cstar * CF * mdot_throat)
-    print("F2 = ", CF * pc * At)
+    print("F1 = ", rend_cstar * rend_CF * cstar * CF * mdot_throat)
+    print("F2 = ", rend_cstar * rend_CF * CF * pc * At)
     print("F3 = ", Thrust)
     #Thrust = rend_cstar * rend_CF * cstar * CF * mdot_throat
 
