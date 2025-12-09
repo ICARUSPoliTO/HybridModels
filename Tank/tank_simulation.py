@@ -123,30 +123,41 @@ def do_one_step(mdotL, mdotV, sL, sV, S, m, Q, oxidizer, Vtank, dt):
             ptank_new (new tank pressure) [Pa],
             Ttank_new (new tank temperature) [K]
     """
+    # Calculate new tank mass
     m_new = m - (mdotL + mdotV)*dt #[kg]
+    # If there is still liquid
     if Q < 0.99:
+        # Get new entropy
         S_new = S - (sL*mdotL + sV*mdotV)*dt #[J/K]
         s_new = S_new / m_new  # [J/kgK]
+        #Get density
         rho_new = m_new / Vtank  # [kg/m^3]
 
+        # Find new pressure, temperature and vapor quality with D and s
         ptank_new = cp.PropsSI('P', 'D', rho_new, 'S', s_new, oxidizer["OxidizerCP"])  # [Pa]
         Ttank_new = cp.PropsSI('T', 'D', rho_new, 'S', s_new, oxidizer["OxidizerCP"])  # [K]
         Q_new = cp.PropsSI('Q', 'D', rho_new, 'S', s_new, oxidizer["OxidizerCP"])
+        # Find phase specific entropies
         sL_new = cp.PropsSI('S', 'T', Ttank_new, 'Q', 0, oxidizer["OxidizerCP"])  # [J/kgK]
         sV_new = cp.PropsSI('S', 'T', Ttank_new, 'Q', 1, oxidizer["OxidizerCP"])  # [J/kgK]
 
+    # If there is only gas (vapor)
     else:
+        # Get new entropy
         S_new = S - (mdotL + mdotV) * sV * dt  # [J/K]
         s_new = S_new / m_new  # [J/kgK]
+        # Get density
         rho_new = m_new / Vtank  # [kg/m^3]
 
+        # Find new pressure and temperature with D and s
         ptank_new = cp.PropsSI('P', 'D', rho_new, 'S', s_new, oxidizer["OxidizerCP"])  # [Pa]
         Ttank_new = cp.PropsSI('T', 'D', rho_new, 'S', s_new, oxidizer["OxidizerCP"])  # [K]
+        # Confirm that phase is full gas and get new specific entropies
         Q_new = 1
         sL_new = 0  # [J/kgK]
         sV_new = s_new  # [J/kgK]
 
-
+    # Calculate new mass for each phase
     if Q_new < 0.99:
         mL_new = m_new*(1-Q_new) #[kg]
         mV_new = m_new*Q_new #[kg]

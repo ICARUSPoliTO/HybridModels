@@ -128,35 +128,39 @@ def do_one_step(mdotL, mdotG, mdotpress, sL, sG, spress, mL, mG, mpress, T_tank,
              Ttank_new: New tank temperature [K],
              p_press_new: New pressurant pressure [Pa]
     """
-
+    # Calculate new masses
     mL_new = mL - mdotL*dt #[kg]
     mG_new = mG + mdotG*dt #[kg]
     mpress_new = mpress - mdotpress*dt #[kg]
-
+    # Calculate old entropy
     SL = sL * mL #[J/K]
     SG = sG * mG #[J/K]
     Spress = spress * mpress #[J/K]
     S = SL + SG + Spress #[J/K]
-
+    # Calculate new entropy
     S_new = S - mdotL * sL #[J/K]
-
+    # Calculate new pressurant density
     rhopress_new = mpress_new / Vpress #[kg/m^3]
     #spress_new = cp.PropsSI('S', 'D', rhopress_new, 'Q', 1, pressurant)  # [J/kgK]
+    # Calculate new pressurant entropy
     spress_new = spress
     Spress_new = spress_new * mpress_new #[J/K]
+    # Get pressurant pressure and temperature
     p_press_new = cp.PropsSI('P', 'D', rhopress_new, 'S', spress_new, pressurant)  # [Pa]
     T_press_new = cp.PropsSI('T', 'D', rhopress_new, 'S', spress_new, pressurant)  # [K]
-
+    # Calculate new liquid density and volume
     rhoL = cp.PropsSI('D', 'T', T_tank, 'Q', 0, propellant) #[kg/m^3]
     VL_new = mL_new / rhoL #[m^3]
-
+    # Calculate new gas volume and density
     VG_new = Vtank - VL_new #[m^3]
     rhoG_new = mG_new / VG_new #[kg/m^3]
     #sG_new = cp.PropsSI('S', 'D', rhoG_new, 'Q', 1, pressurant)  # [J/kgK]
+    # Calculate new gas entropy
     sG_new = sG
     SG_new = sG_new * mG_new #[J/K]
+    # Get tank pressure
     ptank_new = cp.PropsSI('P', 'D', rhoG_new, 'S', sG_new, pressurant)  # [Pa]
-
+    # Calculate new liquid entropy and temperature
     SL_new = S_new - Spress_new - SG_new #[J/K]
     sL_new = SL_new / mL_new #[J/kgK]
     Ttank_new = cp.PropsSI('T','S', sL_new, 'P', ptank_new, propellant)  # [K]

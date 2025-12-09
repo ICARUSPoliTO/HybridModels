@@ -29,10 +29,8 @@ def build_tank(m, Q, T, oxidizer, pressurant=None, ppress=1e5, p=1e5, plim=None)
             plim = 1.5 * p
     else:
         constant_pressure_tank = False
-        if (Q >= 1) & (plim is None):
+        if plim is None:
             plim = 1.5 * p
-        elif (Q < 1) & (plim is None):
-            plim = 1.5 * pV
 
     if not constant_pressure_tank:
         Vtank = normal_tank.create_tank(m, Q, T, oxidizer, p)
@@ -206,8 +204,8 @@ def update_tank(mdotL, dt, entropies, masses, volumes, pressures, temperatures,
             normal_tank.do_one_step(mdotL, mdotG, sL, sG, S, m, Q, oxidizer, Vtank, dt))
 
         entropies_out = {"sL": sL_new, "sG": sG_new, "S": S_new}
-        masses_out = {"m": m_new, "Q": Q_new, "mL": mL_new, "mG": mG_new}
-        pressures_out = {"ptank": ptank_new, "plim": plim, "mdot_vent": mdotG}
+        masses_out = {"m": m_new, "Q": Q_new, "mL": mL_new, "mG": mG_new, "mdot_vent": mdotG}
+        pressures_out = {"ptank": ptank_new, "plim": plim}
         temperatures_out = {"Ttank": Ttank_new}
 
     return ptank_new, Ttank_new, mL_new, entropies_out, masses_out, pressures_out, temperatures_out

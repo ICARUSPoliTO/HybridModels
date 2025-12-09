@@ -654,7 +654,7 @@ def run_full_mission_iteration(burn_time, pamb, Tamb, a, n, rho_fuel,
                      pitch=0.0, circular=False, delay_time = 0.0, npointsperside=50, constant_pressure_tank=False,
                      tol=1e-3):
     """
-    This functions runs the whole mission, until tank emptying.
+    This functions runs the whole mission, until combustion time ends. Special flags for iteration matching.
     :param burn_time: Time for burning phase [s]
     :param pamb: Ambient pressure [Pa]
     :param Tamb: Ambient temperature [K]
@@ -818,8 +818,58 @@ def match_mission(burn_time, pamb, Tamb, a, n, rho_fuel,
                      rend_cstar = 1.1, rend_CF = 1.1,
                      pitch=0.0, circular=False, delay_time = 0.0, npointsperside=50,
                      tol=1e-3, ppress=1e5, ptank0=1e5, plim=None):
-
-
+    """
+    This functions iterates the mission until oxidizer and fuel mass aren't in a range of 5% of starting
+    values at the end of combustion time.
+    :param burn_time: Burn time [s]
+    :param pamb: Ambient pressure [Pa]
+    :param Tamb: Ambient temperature [K]
+    :param a: regression rate coefficient r=aGox^n [m/s]
+    :param n: regression rate exponent r=aGox^n [m/s]
+    :param rho_fuel: Fuel density [kg/m^3]
+    :param eps: Expansion ratio
+    :param Ainj: Injection Area [m^2]
+    :param At: Throat Area [m^2]
+    :param Lc: Chamber Length [m]
+    :param D_chamber: Chamber inner diameter [m]
+    :param x: x-axis values [m]
+    :param y: y-axis values [m]
+    :param z: axis direction for grain geometry (1=counter-clockwise, -1=clockwise)
+    :param Vol_prechamber: Prechamber volume [m^3]
+    :param Vol_postchamber: Postchamber volume [m^3]
+    :param utilities: Dict for tank utilities
+           {"CDvent": float,"Avent": float, "CDpress": float, "Apress": float}
+    :param CD: Injector Discharge coefficient [m/s]
+    :param mtank: Tank mass (total if self press, liquid if pressurized)[kg]
+    :param Q: Tank vapor quality
+    :param oxidizer : oxidizer properties (Coolprop & CEA)
+        {"OxidizerCP" : "", <--Name for CoolProp
+        "OxidizerCEA" : "", <--Name for CEA
+        "Weight fraction" : "100", # Multi-fluid Ox injector not available
+        "Exploded Formula": "",
+        "Temperature [K]" : "",
+        "Specific Enthalpy [kj/mol]" : ""
+        }
+    :param fuel     : fuel properties
+        {"Fuels" : [],  <--Names for CEA
+        "Weight fraction" : [],
+        "Exploded Formula": [],
+        "Temperature [K]" : [],
+        "Specific Enthalpy [kj/mol]" : []
+        }
+    :param pressurant: Pressurant CoolProp name
+    :param rend_cstar: c* efficiency
+    :param rend_CF: CF efficiency
+    :param pitch: Fuel grain helix pitch [m]
+    :param circular: Bool (True: arc fill, False: linear fill)
+    :param delay_time: Delay time before ignition [s]
+    :param npointsperside: Point between every consecutive point to fill geometry
+    :param tol: Tolerance for time step calculation
+    :param ppress: Pressurant pressure [Pa]
+    :param ptank0: Tank initial pressure (needed only for full gas or pressurised)[Pa]
+    :param plim: Limit pressure of the tank for venting (optional) [Pa]
+    :return: time, inputs, performances_out, out_log
+    """
     matched = False
     n_it = 0
     maxit = 20
@@ -887,10 +937,12 @@ def match_mission(burn_time, pamb, Tamb, a, n, rho_fuel,
             matched = True
 
     if n_it > maxit:
+        converged = False
         print( "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         print(f"Mission not matched! {n_it} / {maxit}")
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
     else:
+        converged = True
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         print(f"Mission matched! {n_it} / {maxit}")
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
@@ -920,14 +972,13 @@ def match_mission(burn_time, pamb, Tamb, a, n, rho_fuel,
               "rend_cstar": rend_cstar, "rend_CF": rend_CF,
               "pitch": pitch, "circular": circular, "delay_time": delay_time,
               "npointsperside": npointsperside, "constant_pressure_tank": constant_pressure_tank,
-              "tol": tol}
+              "tol": tol, "converged": converged, "n_it": n_it, "maxit": maxit}
     """
     out_log[0] = {"ptank": True, "mL": False, "t": time[-1]}
     out_log[1] = {"ptank": True, "mL": False, "m_fuel": True, "max_r": True, "t": time[-1]}
     """
 
     return time, inputs, performances_out, out_log
-
 
 if __name__ == '__main__':
 
@@ -965,8 +1016,8 @@ if __name__ == '__main__':
     x = np.array([0.5 * Dp]) # [m]
     y = np.array([0]) # [m]
     z = 1
-    Vol_prechamber = 0
-    Vol_postchamber = 0
+    Vol_prechamber = 0.1
+    Vol_postchamber = 0.1
 
     mtank = 25 # [kg]
     Q = 0.03
@@ -1076,3 +1127,4 @@ if __name__ == '__main__':
 
     plt.show()
     """
+# end of file
