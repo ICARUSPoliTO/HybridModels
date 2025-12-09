@@ -296,7 +296,7 @@ def calculate_fuel_mass(Ap, lc, D_chamber, fuel_density):
     :return: mfuel: Fuel mass [kg]
     """
     empty_volume = Ap * lc
-    full_volume = 0.25 * np.pi * (D_chamber**2)
+    full_volume = 0.25 * np.pi * (D_chamber**2) * lc
     remaining_volume = full_volume - empty_volume
     mfuel = remaining_volume * fuel_density
 
@@ -306,9 +306,5 @@ if __name__ == '__main__':
     Ap, Ab, Vol = fill_and_calculate_surfaces_and_volume(np.array([0.03]), np.array([0.0]), 1, 20, True)
 
     print(Ap, Ab, Vol)
-
-
-
-
 
 # end of file

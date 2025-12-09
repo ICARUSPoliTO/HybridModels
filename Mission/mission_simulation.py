@@ -5,6 +5,8 @@ This file provides the function to simulate a mission of a hybrid rocket engine.
 import numpy as np
 import matplotlib.pyplot as plt
 import CoolProp.CoolProp as cp
+from Tools.scripts.pindent import delete_file
+
 import Injection.PyInjection as inj
 import Line_losses.linelosses as loss
 import Geometry.geometry_update as geom
@@ -12,6 +14,49 @@ import Geometry.geometry_calculation as geomcalc
 import Performance.performance_singlepoint as perf
 import Tank.tank_update as tank
 import Mission.chamber_update as chamber
+import Mission.Plotting as plotting
+
+from typing import List, Dict, Any, Optional
+
+def normalize_performances(list_of_dicts: List[Dict[str, Any]]) -> Dict[str, List[Any]]:
+    """
+    Trasforma una lista di dizionari (performances) in un dizionario di liste per ogni chiave.
+    - Preserva l'ordine di apparizione delle chiavi (prima occorrenza).
+    - Se una chiave manca in un elemento, inserisce il valore di default:
+        * se defaults contiene la chiave -> usa defaults[key]
+        * se la chiave è 'burn' -> usa False
+        * altrimenti -> usa None
+    :param list_of_dicts: lista di dizionari (es. performances_out)
+    :param defaults: dizionario opzionale di valori di default per chiave
+    :return: dict con chiavi -> lista di valori (stessa lunghezza di list_of_dicts)
+    """
+
+    # Costruisci ordine delle chiavi basato sulla prima apparizione
+    seen = []
+    for d in list_of_dicts:
+        for k in d.keys():
+            if k not in seen:
+                seen.append(k)
+
+    # Assicurati che 'burn' sia presente nell'ordine delle chiavi
+    if 'burn' not in seen:
+        seen.append('burn')
+
+    # Per ogni chiave crea la lista dei valori, usando default se mancante
+    result: Dict[str, List[Any]] = {}
+    for key in seen:
+        col = []
+        for d in list_of_dicts:
+            if key in d:
+                col.append(d[key])
+            else:
+                if key == 'burn':
+                    col.append(False)
+                else:
+                    col.append(None)
+        result[key] = col
+
+    return result
 
 def find_nozzle_output(gamma, MW, Tc, pc, mdot_throat, pamb, At, eps):
     R = 8314 / MW
@@ -367,6 +412,7 @@ def run_one_step(pc, mdot_throat, Tc, MW, gamma, a, n, rho_fuel, pamb, ptank, Tt
     Me, Te, pe, Ve = find_nozzle_output(gamma, MW, Tc, pc, mdot_throat, pamb, At, eps)
 
     Thrust = rend_cstar * rend_CF * (mdot_throat * Ve + (pe - pamb) * eps * At)
+    """
     print("c* = ", cstar)
     print("CF = ", CF)
     print("mdot = ", mdot_throat)
@@ -374,6 +420,7 @@ def run_one_step(pc, mdot_throat, Tc, MW, gamma, a, n, rho_fuel, pamb, ptank, Tt
     print("F2 = ", rend_cstar * rend_CF * CF * pc * At)
     print("F3 = ", Thrust)
     #Thrust = rend_cstar * rend_CF * cstar * CF * mdot_throat
+    """
 
     performances = {"pc": pc, "pinj": p_inj, "dt": dt, "Thrust": Thrust,
                     "mdot_ox": mdot_ox, "mdot_fuel": mdot_fuel, "mdot": mdot, "mdot_throat": mdot_throat, "Gox": Gox,
@@ -482,11 +529,15 @@ def run_full_mission(burn_time, pamb, Tamb, a, n, rho_fuel,
 
     time = [0]
     performances_out = [performances]
+    out_log = []
 
     conditions_no_burn = (mL > 0 or full_gas_tank) & (ptank > pc)
 
     conditions_burn = ((mL > 0 or full_gas_tank) & (ptank > pc) &
                   (m_fuel > 0) & (np.max(np.hypot(x, y)) < 0.5 * D_chamber))
+
+    if delay_time == 0.0:
+        delay_time = -1
 
     while conditions_no_burn & (time[-1] < delay_time):
         (pc, mdot_throat, Thrust, dt,
@@ -506,6 +557,19 @@ def run_full_mission(burn_time, pamb, Tamb, a, n, rho_fuel,
         conditions_no_burn = (mL > 0 or full_gas_tank) & (ptank > pc)
         time.append(time[-1] + dt)
         performances_out.append(performances)
+
+    out_str = "Delayied ignition ended:\n"
+    if time[-1] >= delay_time:
+        out_str += f"Delay time ended at {time[-1]}!"
+    elif not (mL > 0 or full_gas_tank):
+        out_str += "Tank empty!\n"
+        out_str += f"Time: {time[-1]}"
+    elif not (ptank > pc):
+        out_str += "Tank pressure too low!\n"
+        out_str += f"Time: {time[-1]}"
+    else:
+        out_str += f"Delay time ended at {time[-1]}!"
+    out_log.append(out_str)
 
     while conditions_burn & (time[-1] < (burn_time + delay_time)):
         (pc, mdot_throat, Thrust, dt,
@@ -528,6 +592,26 @@ def run_full_mission(burn_time, pamb, Tamb, a, n, rho_fuel,
         time.append(time[-1] + dt)
         performances_out.append(performances)
 
+    out_str = "Combustion ended:\n"
+    if time[-1] >= (burn_time + delay_time):
+        out_str += f"Combustion time ended at {time[-1]}!"
+    elif not (mL > 0 or full_gas_tank):
+        out_str += "Tank empty!\n"
+        out_str += f"Time: {time[-1]}"
+    elif not (ptank > pc):
+        out_str += "Tank pressure too low!\n"
+        out_str += f"Time: {time[-1]}"
+    elif not (m_fuel > 0):
+        out_str += "Fuel finished\n"
+        out_str += f"Time: {time[-1]}"
+    elif not (np.max(np.hypot(x, y)) < 0.5 * D_chamber):
+        out_str += "Chamber wall reached\n"
+        out_str += f"Time: {time[-1]}"
+    else:
+        out_str += f"Combustion time ended at {time[-1]}!"
+
+    out_log.append(out_str)
+
     while conditions_no_burn:
         (pc, mdot_throat, Thrust, dt,
          Tc, MW, gamma, ptank, Ttank, eps,
@@ -547,11 +631,307 @@ def run_full_mission(burn_time, pamb, Tamb, a, n, rho_fuel,
         time.append(time[-1] + dt)
         performances_out.append(performances)
 
-    return time, performances_out
+    out_str = "Final emptying ended:\n"
+    if not (mL > 0 or full_gas_tank):
+        out_str += "Tank empty!\n"
+        out_str += f"Time: {time[-1]}"
+    elif not (ptank > pc):
+        out_str += "Tank pressure too low!\n"
+        out_str += f"Time: {time[-1]}"
+
+    out_log.append(out_str)
+
+    return time, performances_out, out_log
+
+def run_full_mission_iteration(burn_time, pamb, Tamb, a, n, rho_fuel,
+                     eps, Ainj, At, Lc, D_chamber,
+                     x, y, z,
+                     Vol_prechamber, Vol_postchamber,
+                     masses, volumes, pressures, temperatures, utilities,
+                     CD,
+                     oxidizer, fuel, pressurant=None,
+                     rend_cstar = 1.1, rend_CF = 1.1,
+                     pitch=0.0, circular=False, delay_time = 0.0, npointsperside=50, constant_pressure_tank=False,
+                     tol=1e-3):
+    """
+    This functions runs the whole mission, until tank emptying.
+    :param burn_time: Time for burning phase [s]
+    :param pamb: Ambient pressure [Pa]
+    :param Tamb: Ambient temperature [K]
+    :param a: regression rate coefficient r=a*Gox**n
+    :param n: regression rate coefficient r=a*Gox**n
+    :param rho_fuel: Fuel density [kg/m^3]
+    :param eps: Expansion ratio
+    :param Ainj: Injection Area [m^2]
+    :param At: Throat Area [m^2]
+    :param Lc: Chamber Length [m]
+    :param D_chamber: Chamber Diameter [m]
+    :param x: x-coordinates for grain geometry [m]
+    :param y: y-coordinates for grain geometry [m]
+    :param z: axis for grain geometry (1: counter-clockwise, 0: clockwise)
+    :param Vol_prechamber: Prechamber volume [m]
+    :param Vol_postchamber: Postchamber volume [m]
+    :param masses: Masses dictionaty (depends on type of tank)
+    :param volumes: Volumes dictionaty (depends on type of tank)
+    :param pressures: Pressures dictionaty (depends on type of tank)
+    :param temperatures: Temperatures dictionaty (depends on type of tank)
+    :param utilities: Utilities dictionaty (depends on type of tank)
+    :param CD: Injector discharge coefficient
+    :param oxidizer : oxidizer properties (Coolprop & CEA)
+        {"OxidizerCP" : "", <--Name for CoolProp
+        "OxidizerCEA" : "", <--Name for CEA
+        "Weight fraction" : "100", # Multi-fluid Ox injector not available
+        "Exploded Formula": "",
+        "Temperature [K]" : "",
+        "Specific Enthalpy [kj/mol]" : ""
+        }
+    :param fuel     : fuel properties
+        {"Fuels" : [],  <--Names for CEA
+        "Weight fraction" : [],
+        "Exploded Formula": [],
+        "Temperature [K]" : [],
+        "Specific Enthalpy [kj/mol]" : []
+        }
+    :param pressurant: Pressurant CoolProp name
+    :param rend_cstar: c* efficiency
+    :param rend_CF: CF efficiency
+    :param pitch: Grain geometry pitch [m]
+    :param circular: Bool (False: connect grain points with segments, True: connect grain points with arcs)
+    :param delay_time: Time to delay before ignition [s]
+    :param npointsperside: Points between every point to fill sides of grain geometry
+    :param constant_pressure_tank: Bool (False: Self-pressurising/Full gas tank, True: Pressurised tank)
+    :param tol: Time-step evaluation tolerance
+    :return:
+    """
+    (pc, mdot_throat, Tc, MW, gamma,
+     ptank, Ttank, mL, m_fuel,
+     entropies, masses, pressures, temperatures,
+     Ap, Ab, Vol_chamber) = get_starting_conditions(pamb, Tamb, rho_fuel,
+                            x, y, Lc,
+                            D_chamber, Vol_prechamber, Vol_postchamber,
+                            masses, volumes, pressures, temperatures,
+                            oxidizer, pressurant,
+                            pitch, circular, npointsperside, constant_pressure_tank)
+
+
+    if mL == 0:
+        full_gas_tank = True
+    else:
+        full_gas_tank = False
+
+    performances = {"pc": pc, "pinj": pc, "dt": 0.0, "Thrust": 0.0,
+                    "mdot_ox": 0.0, "mdot_fuel": 0.0, "mdot": 0.0, "mdot_throat": mdot_throat,
+                    "Tc": Tc, "MW": MW, "gamma": gamma,
+                    "eps": eps,
+                    "x": x, "y": y, "Ap": Ap, "Ab": Ab, "Vol_chamber": Vol_chamber,
+                    "m_fuel": m_fuel, "mL": mL, "ptank": ptank, "Ttank": Ttank,
+                    "Me": 0.0, "Te": Tc, "pe": pamb, "pamb": pamb,
+                    "entropies": entropies, "masses": masses, "pressures": pressures, "temperatures": temperatures,
+                    "burn": False}
+
+    time = [0]
+    performances_out = [performances]
+    out_log = []
+
+    conditions_no_burn = (mL > 0 or full_gas_tank) & (ptank > pc)
+
+    conditions_burn = ((mL > 0 or full_gas_tank) & (ptank > pc) &
+                  (m_fuel > 0) & (np.max(np.hypot(x, y)) < 0.5 * D_chamber))
+
+    if delay_time == 0.0:
+        delay_time = -1
+
+    while conditions_no_burn & (time[-1] < delay_time):
+        (pc, mdot_throat, Thrust, dt,
+         Tc, MW, gamma, ptank, Ttank, eps,
+         mL, m_fuel,
+         Ap, Ab, Vol_chamber,
+         x, y,
+         entropies, masses, pressures, temperatures,
+         performances) = run_one_step_no_burn(pc, mdot_throat, Tc, MW, gamma, rho_fuel, pamb, ptank, Ttank, eps,
+                     Ainj, At, Ap, Ab, Lc, Vol_chamber, D_chamber,
+                     x, y,
+                     entropies, masses, volumes, pressures, temperatures, utilities,
+                     CD,
+                     oxidizer, pressurant,
+                     rend_CF, constant_pressure_tank, tol)
+
+        conditions_no_burn = (mL > 0 or full_gas_tank) & (ptank > pc)
+        time.append(time[-1] + dt)
+        performances_out.append(performances)
+
+    if time[-1] >= delay_time:
+        out_opt = {"ptank": True, "mL": True, "t": time[-1]}
+    elif not (mL > 0 or full_gas_tank):
+        out_opt = {"ptank": True, "mL": False, "t": time[-1]}
+    elif not (ptank > pc):
+        out_opt = {"ptank": False, "mL": True, "t": time[-1]}
+    else:
+        out_opt = {"ptank": True, "mL": True, "t": time[-1]}
+    out_log.append(out_opt)
+
+    while conditions_burn & (time[-1] < (burn_time + delay_time)):
+        (pc, mdot_throat, Thrust, dt,
+         Tc, MW, gamma, ptank, Ttank, eps,
+         mL, m_fuel,
+         Ap, Ab, Vol_chamber,
+         x, y,
+         entropies, masses, pressures, temperatures,
+         performances, flag) = run_one_step(pc, mdot_throat, Tc, MW, gamma, a, n, rho_fuel, pamb, ptank, Ttank, eps,
+                     Ainj, At, Ap, Ab, Lc, Vol_chamber, Vol_prechamber, Vol_postchamber, D_chamber,
+                     x, y, z,
+                     entropies, masses, volumes, pressures, temperatures, utilities,
+                     CD,
+                     oxidizer, fuel, pressurant,
+                     rend_cstar, rend_CF,
+                     pitch, circular, npointsperside, constant_pressure_tank, tol)
+
+        conditions_burn = ((mL > 0 or full_gas_tank) & (ptank > pc) &
+                           (m_fuel > 0) & (np.max(np.hypot(x, y)) < 0.5 * D_chamber))
+        time.append(time[-1] + dt)
+        performances_out.append(performances)
+
+    if time[-1] >= (burn_time + delay_time):
+        out_opt = {"ptank": True, "mL": True, "m_fuel": True, "max_r": True, "t": time[-1]}
+    elif not (mL > 0 or full_gas_tank):
+        out_opt = {"ptank": True, "mL": False, "m_fuel": True, "max_r": True, "t": time[-1]}
+    elif not (ptank > pc):
+        out_opt = {"ptank": False, "mL": True, "m_fuel": True, "max_r": True, "t": time[-1]}
+    elif not (m_fuel > 0):
+        out_opt = {"ptank": True, "mL": True, "m_fuel": False, "max_r": True, "t": time[-1]}
+    elif not (np.max(np.hypot(x, y)) < 0.5 * D_chamber):
+        out_opt = {"ptank": True, "mL": True, "m_fuel": True, "max_r": False, "t": time[-1]}
+    else:
+        out_opt = {"ptank": True, "mL": True, "m_fuel": True, "max_r": True, "t": time[-1]}
+
+    out_log.append(out_opt)
+
+    return time, performances_out, out_log
+
+def match_mission(burn_time, pamb, Tamb, a, n, rho_fuel,
+                     eps, Ainj, At, Lc, D_chamber,
+                     x, y, z,
+                     Vol_prechamber, Vol_postchamber, utilities,
+                     CD,
+                     mtank, Q,
+                     oxidizer, fuel, pressurant=None,
+                     rend_cstar = 1.1, rend_CF = 1.1,
+                     pitch=0.0, circular=False, delay_time = 0.0, npointsperside=50,
+                     tol=1e-3, ppress=1e5, ptank0=1e5, plim=None):
+
+
+    matched = False
+    n_it = 0
+    maxit = 20
+    while not matched:
+
+        masses, volumes, pressures, temperatures, constant_pressure_tank = (
+            tank.build_tank(mtank, Q, Tamb, oxidizer, pressurant, ppress, ptank0, plim))
+
+        time, performances_out, out_log = run_full_mission_iteration(burn_time, pamb, Tamb, a, n, rho_fuel,
+                         eps, Ainj, At, Lc, D_chamber,
+                         x, y, z,
+                         Vol_prechamber, Vol_postchamber,
+                         masses, volumes, pressures, temperatures, utilities,
+                         CD,
+                         oxidizer, fuel, pressurant,
+                         rend_cstar, rend_CF,
+                         pitch, circular, delay_time, npointsperside, constant_pressure_tank,
+                         tol)
+
+        # Gross adjustements for delay injection
+        if not out_log[0]["mL"]:
+            mtank = 2 * mtank
+        elif not out_log[0]["ptank"]:
+            if (Q == 1) or (constant_pressure_tank):
+                ptank0 = 1.5 * ptank0
+            else:
+                Q = 2 * Q
+
+        if not out_log[1]["mL"]: # Tank empty before required time
+            mtank = mtank * (burn_time + delay_time) / out_log[1]["t"] # Increment tank mass
+
+            if performances_out[-1]["m_fuel"] > 0.05 * performances_out[0]["m_fuel"]: # Cut excess fuel
+                D_chamber = 1.05 * 2 * np.max(np.hypot(performances_out[-1]["x"], performances_out[-1]["y"]))
+
+        elif not out_log[1]["ptank"]: # Increment tank ullage or pressure
+            if (Q == 1) or (constant_pressure_tank):
+                ptank0 = ptank0 * (burn_time + delay_time) / out_log[1]["t"]
+            else:
+                Q = Q * (burn_time + delay_time) / out_log[1]["t"]
+
+            if performances_out[-1]["m_fuel"] > 0.05 * performances_out[0]["m_fuel"]: # Cut excess fuel
+                D_chamber = 1.05 * 2 * np.max(np.hypot(performances_out[-1]["x"], performances_out[-1]["y"]))
+
+        elif not ((out_log[1]["m_fuel"]) and (out_log[1]["max_r"])): # Increment fuel
+            D_chamber = D_chamber * (burn_time + delay_time) / out_log[1]["t"]
+
+            if performances_out[-1]["mL"] > 0.05 * performances_out[0]["mL"]:  # Cut excess oxidizer
+                mtank = 1.05 * performances_out[-1]["mL"]
+
+        else:
+            if performances_out[-1]["mL"] > 0.05 * performances_out[0]["mL"]:  # Cut excess oxidizer
+                mtank = 1.05 * performances_out[-1]["mL"]
+
+                if performances_out[-1]["m_fuel"] > 0.05 * performances_out[0]["m_fuel"]: # Cut excess fuel
+                    D_chamber = 1.05 * 2 * np.max(np.hypot(performances_out[-1]["x"], performances_out[-1]["y"]))
+            else:
+
+                if performances_out[-1]["m_fuel"] > 0.05 * performances_out[0]["m_fuel"]:  # Cut excess fuel
+                    D_chamber = 1.05 * 2 * np.max(np.hypot(performances_out[-1]["x"], performances_out[-1]["y"]))
+                else:
+                    matched = True
+
+        n_it += 1
+        if n_it > maxit:
+            matched = True
+
+    if n_it > maxit:
+        print( "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        print(f"Mission not matched! {n_it} / {maxit}")
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+    else:
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        print(f"Mission matched! {n_it} / {maxit}")
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+
+    masses, volumes, pressures, temperatures, constant_pressure_tank = (
+        tank.build_tank(mtank, Q, Tamb, oxidizer, pressurant, ppress, ptank0, plim))
+
+    time, performances_out, out_log = run_full_mission(burn_time, pamb, Tamb, a, n, rho_fuel,
+                                                       eps, Ainj, At, Lc, D_chamber,
+                                                       x, y, z,
+                                                       Vol_prechamber, Vol_postchamber,
+                                                       masses, volumes, pressures, temperatures, utilities,
+                                                       CD,
+                                                       oxidizer, fuel, pressurant,
+                                                       rend_cstar, rend_CF,
+                                                       pitch, circular, delay_time, npointsperside,
+                                                       constant_pressure_tank,
+                                                       tol)
+
+    inputs = {"burn_time": burn_time, "Tamb": Tamb, "a": a, "n": n, "rho_fuel": rho_fuel,
+              "Ainj": Ainj, "At": At, "Lc": Lc, "D_chamber": D_chamber,
+              "z": z,
+              "Vol_prechamber": Vol_prechamber, "Vol_postchamber": Vol_postchamber,
+              "utilities": utilities,
+              "CD": CD,
+              "oxidizer": oxidizer, "fuel": fuel, "pressurant": pressurant,
+              "rend_cstar": rend_cstar, "rend_CF": rend_CF,
+              "pitch": pitch, "circular": circular, "delay_time": delay_time,
+              "npointsperside": npointsperside, "constant_pressure_tank": constant_pressure_tank,
+              "tol": tol}
+    """
+    out_log[0] = {"ptank": True, "mL": False, "t": time[-1]}
+    out_log[1] = {"ptank": True, "mL": False, "m_fuel": True, "max_r": True, "t": time[-1]}
+    """
+
+    return time, inputs, performances_out, out_log
+
 
 if __name__ == '__main__':
 
-    burn_time = 5 #[s]
+    burn_time = 30 #[s]
     pamb = 1.01325e5
     Tamb = 288
     a = 0.17e-3
@@ -609,7 +989,8 @@ if __name__ == '__main__':
     npointsperside = 50
     tol = 1e-3
 
-    time, performances_out = run_full_mission(burn_time, pamb, Tamb, a, n, rho_fuel,
+    """
+    time, performances_out, out_log = run_full_mission(burn_time, pamb, Tamb, a, n, rho_fuel,
                      eps, Ainj, At, Lc, D_chamber,
                      x, y, z,
                      Vol_prechamber, Vol_postchamber,
@@ -619,44 +1000,79 @@ if __name__ == '__main__':
                      rend_cstar, rend_CF,
                      pitch, circular, delay_time, npointsperside, constant_pressure_tank,
                      tol)
+    """
+    time, inputs, performances_out, out_log = match_mission(burn_time, pamb, Tamb, a, n, rho_fuel,
+                  eps, Ainj, At, Lc, D_chamber,
+                  x, y, z,
+                  Vol_prechamber, Vol_postchamber, utilities,
+                  CD,
+                  mtank, Q,
+                  oxidizer, fuel, pressurant,
+                  rend_cstar, rend_CF,
+                  pitch, circular, delay_time, npointsperside,
+                  tol, ppress, p0, plim)
+    #"""
 
+    results = normalize_performances(performances_out)
 
-    burn = [p["burn"] for p in performances_out]
-    pc = [p["pc"] for p in performances_out]
-    Tc = [p["Tc"] for p in performances_out]
-    pe = [p["pe"] for p in performances_out]
-    Te = [p["Te"] for p in performances_out]
-    Me = [p["Me"] for p in performances_out]
-    pamb = [p["pamb"] for p in performances_out]
-    Tc_CEA = [performances_out[i]["Tc_CEA"] for i, b in enumerate(burn) if b]
-    time_burn = [time[i] for i, b in enumerate(burn) if b]
-    Thrust = [p["Thrust"] for p in performances_out]
-
+    #Plot to match output file
+    plt.figure()
+    plt.plot(time, results["Thrust"])
+    plt.show()
 
     plt.figure()
-    plt.plot(time, pc, label="Pc")
-    plt.plot(time, pe, label="Pe")
-    plt.plot(time, pamb, label="P0")
+    plt.plot(time, results["m_fuel"], label="Fuel")
+    plt.plot(time, results["mL"], label="Tank")
+    plt.legend()
+    plt.show()
+    for elmnt in out_log:
+        print(elmnt)
+
+    import pickle
+    # Saving the objects:
+    open('results.pkl', 'w').close()
+    with open('results.pkl', 'wb') as f:  # Python 3: open(..., 'wb')
+        pickle.dump((time, inputs, results, out_log), f)
+
+
+
+    """
+    burn = [p["burn"] for p in performances_out]
+    Tc_CEA = [performances_out[i]["Tc_CEA"] for i, b in enumerate(burn) if b]
+    time_burn = [time[i] for i, b in enumerate(burn) if b]
+    """
+    #plotting.plot_results(time, results)
+    """
+    plt.figure()
+    plt.plot(time, results["pc"], label="Pc")
+    plt.plot(time, results["pe"], label="Pe")
+    plt.plot(time, results["pamb"], label="P0")
     plt.xlabel("Time [s]")
     plt.ylabel("Pressure [Pa]")
     plt.legend()
 
     plt.figure()
-    plt.plot(time, Tc, label="Tc")
-    plt.plot(time_burn, Tc_CEA, label="Tc_CEA")
-    #plt.plot(time, Te, label="Te")
+    plt.plot(time, results["Tc"], label="Tc")
+    plt.plot(time, results["Tc_CEA"], label="Tc_CEA")
+    plt.plot(time, results["Te"], label="Te")
     plt.xlabel("Time [s]")
     plt.ylabel("Temperature [K]")
     plt.legend()
 
     plt.figure()
-    plt.plot(time, Me, label="Me")
+    plt.plot(time, results["Me"], label="Me")
     plt.xlabel("Time [s]")
     plt.ylabel("Mach Number")
 
     plt.figure()
-    plt.plot(time, Thrust)
+    plt.plot(time, results["Thrust"])
+    plt.xlabel("Time [s]")
+    plt.ylabel("Thrust [N]")
+
+    plt.figure()
+    plt.plot(time, results["m_fuel"])
     plt.xlabel("Time [s]")
     plt.ylabel("Thrust [N]")
 
     plt.show()
+    """
