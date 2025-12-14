@@ -1,0 +1,213 @@
+\newpage
+\chapter{Grain geometry}
+The purpose of these functions is to give the possibility to manage complex and helical geometries, their evolution through combustion and to perform needed calculations.
+
+\section{Calculation functions}
+To perform the needed operations the following functions were built, available in \textit{Geometry//geometry\_calculation.py}.
+
+\begin{verbatim}
+create_regular_poligon(n_sides, circum_radius)
+-> return x_poly, y_poly
+\end{verbatim}
+
+\hspace*{2em} Creates a centered, regular polygon inscribed in the circumference. Returns Numpy \cite{harris2020array} arrays of size $(n,)$ composed of x and y values of the vertices.
+
+\begin{verbatim}
+create_repeated_instance(x, y, n_instances)
+-> return x_u, y_u
+\end{verbatim}
+\hspace*{2em} Given an instance of points as two Numpy arrays of size $(n,)$, repeats it \textit{n\_instances} times. Points sharing the same position are filtered returning only uniques. Returns Numpy arrays of size $(n,)$ composed of x and y values of the figure.
+
+\begin{verbatim}
+translate_figure(x, y)
+-> return x_translated, y_translated
+\end{verbatim}
+\hspace*{2em} Positions the origin in the figure's centroid. Returns Numpy arrays of size $(n,)$ composed of x and y values of the translated figure.
+
+\begin{verbatim}
+sort_input(x, y, z=1)
+-> return x_sorted, y_sorted
+\end{verbatim}
+\hspace*{2em} Sorts the points in counter-clockwise order if \verb|z=1| or clockwise if \verb|z=-1|, with \textit{z} rotation axis' versor. Returns Numpy arrays of size $(n,)$ composed of sorted x and y values of the figure.
+
+\begin{verbatim}
+fill_borders(x, y, n_points_per_side)
+-> return x_fill, y_fill
+\end{verbatim}
+\hspace*{2em} Fills the segment between each consecutive point with input number of points. Returns Numpy arrays of size $(n,)$ composed of x and y values of the figure.
+
+\begin{verbatim}
+fill_borders_circumference(x, y, n_points_per_side)
+-> return x_fill, y_fill
+\end{verbatim}
+\hspace*{2em} Fills between every consecutive point at the same radius with an arc of angle-wise linearly spaced points with the same radius. In other cases fills the segments. Returns Numpy arrays of size $(n,)$ composed of x and y values of the figure.
+
+\begin{verbatim}
+calculate_surfaces_from_points(x, y, lc, step=0.0)
+-> return PortArea, BurningArea
+\end{verbatim}
+\hspace*{2em} Calculates the base and side area of a parallelepipedon with base given by \verb|x,y| points and height equal to \verb|lc|. It is possible to consider a twisted body giving a non-zero value to \verb|step|, which is the axial distance during a $360°$ turn. The function closes the polygon (it is not needed to repeat the first point), calculates the module of every side (linear approximation of circumferences: it should be used with filled geometries) and the radius of each vertex.\\ 
+The port (base) area is calculated as the sum of each triangle's area (radius-side-radius) using Heron of Alexandria's formula:
+\begin{equation}
+    A = \sqrt{p\cdot(p-a)\cdot(p-b)\cdot(p-c)}
+\end{equation}
+with:
+\begin{itemize}
+    \item $p$: half-perimeter of the triangle
+    \item $a, b, c$: sides of the triangle
+\end{itemize}
+\hspace*{2em} The side area is calculated as
+\begin{equation}
+    A=2p \cdot l_c
+\end{equation}
+for not twisted bodies. Instead with twisted bodies we divide the height in small units
+\begin{equation}
+    h=min(min(c), step) / 10
+\end{equation}
+with $c$ sides of the figure, rotate each point of the rotation at that height
+\begin{equation}
+    d\theta=2\pi\frac{h}{step}
+\end{equation}
+Then we get the distance between each translated point and the starting side with Pythagoras' theorem using height $h$ and the distance between the projection of the translated point (T) on the base plane and a straight line formed by the original point (A) and its following (B):
+\begin{equation}
+    H=\sqrt{h^2 + s^2}
+\end{equation}
+with
+\begin{equation*}
+    s = \frac{|(x_B-x_A)(y_T-y_A) - (y_B-y_A)(x_T-x_A)|}{\sqrt{(y_B-y_A)^2 + (x_B-x_A)^2}}
+\end{equation*}
+Finally, we find the area of each parallelogram, sum them and multiply by the number of height sections
+\begin{equation}
+    A=\frac{l_c}{h} \sum{H\cdot c}
+\end{equation}
+
+\begin{verbatim}
+fill_and_calculate_surfaces_and_volume(x, y, lc, n_pointsperside=20, 
+circular=False, step=0.0, Vol_prechamber=0.0, Vol_postchamber=0.0)
+-> return A_port, A_burn, Vol_chamber
+\end{verbatim}
+This function wraps the previous, filling the borders using the self-evident flag \verb|circular| to know which function choose, calculates port area and burning area and calculates the internal fluid volume of the chamber as
+\begin{equation}
+    V = V_{pre} + A_pl_c + V_{post} 
+\end{equation}
+allowing to consider the effects of pre-chamber and mixer.\\
+The main reason of this function is to have an easy call for the needed calculation considering that to update the geometry the linear and circular fills are removed to burn the actual sides without errors, as it will be later discussed.
+
+\begin{verbatim}
+calculate_fuel_mass(Ap, lc, D_chamber, fuel_density)
+-> return mfuel
+\end{verbatim}
+\hspace*{2em} Calculates fuel mass as
+\begin{equation}
+    m_{fuel}=\rho_{fuel}(\frac{\pi}{4}D_{chamber}^2 - A_p)l_c
+\end{equation}
+
+\section{Update functions}
+To update the geometry through the combustion process the following functions were built, available in \textit{Geometry//geometry_update.py}. 
+\begin{verbatim}
+remove_close_vertices(x, y, tol=1e-12)
+-> return pts2[:, 0], pts2[:, 1]
+\end{verbatim}
+\hspace*{2em} Removes points closer than the tolerance \verb|tol| respect to the ones before. Returns Numpy arrays of size $(n,)$ composed of non-close x and y values of the figure.
+
+\begin{verbatim}
+remove_collinear_simple(x, y, tol=1e-12)
+-> return x_new, y_new
+\end{verbatim}
+\hspace*{2em} Removes a point if it is collinear with the one before and the one after.  Returns Numpy arrays of size $(n,)$ composed of x and y vertex of the figure.
+
+\begin{verbatim}
+remove_samearc_simple(x, y, tol=1e-12)
+-> return x_new, y_new
+\end{verbatim}
+\hspace*{2em} Removes a point if it is at the same radius of the one before and the one after.  Returns Numpy arrays of size $(n,)$ composed of non-circumferential x and y of the figure.
+
+\begin{verbatim}
+_line_intersection_from_dirs(pA, vA, pB, vB, eps=1e-12)
+-> return bool, pt, s, t, cond
+\end{verbatim}
+\hspace*{2em} Solves a linear system to find the intersection between two lines starting from point A and B knowing the directions. Returns a flag to know if the solution was found, the intersection point, the distances from the two points and the condition number. Considering that the two directions are towards the expected intersection, distances \verb|s| and \verb|t| should be positive.
+
+\begin{verbatim}
+burn_surface(x, y, z, regression_rate, dt, min_param=1e-9, 
+parallel_dot_thresh=0.9999, close_tol=1e-12, merge_tol=1e-9)
+-> return x_new, y_new
+\end{verbatim}
+\hspace*{2em} Removes collinear points to isolate the vertex, finds the direction between each point and it's following. \verb|z| represents the rotation axis for the order of the points ($1$ if couter-clockwise and $-1$ if clock-wise) and is needed to find the normal direction for burning, in fact for counter-clockwise order we have
+\begin{equation}
+    t=(t_x,t_y)
+\end{equation}
+\begin{equation}
+    n=(t_y,-t_x)
+\end{equation}
+and for clock-wise, instead
+\begin{equation}
+    n=(-t_y,t_x)
+\end{equation}
+So we can write
+\begin{equation}
+    n=(zt_y,-zt_x)
+\end{equation}
+We finally find the middle points of each segment and translate it of a vector
+\begin{equation}
+    r_n=rdt(zt_y,-zt_x)
+\end{equation}
+To find the intersections it is necessary to discern between sides with obtuse and acute angles, calculated using the cross product of the two normals
+\begin{gather}
+    z(n_A \times n_B)= \begin{matrix} >1 & obtuse\ angle\\ <1& acute\ angle\end{matrix}
+\end{gather}
+For obtuse angles it is enough to do the intersection, instead with acute angles we have a cusp and need to know if it does not degenerate. It happens when the cusp becomes a single side and could degenerate changing the position of two following translated mid-points. This condition is verified when the side of one of the two sides is lower than the critical distance
+\begin{equation}
+    L_{crit}=\frac{rdt}{tan{\frac{\theta}{2}}}
+\end{equation}
+with $\theta$ angle between the two sides.
+If this condition is verified, to perform the intersection we remove the too small sides and do it with the external one(s).\\ 
+As a fallback condition in case the intersection is not found, we use the midpoint between the two points, but only for a cusp, in the other case we move the actual vertex in the two directions.\\
+The minimum amount of non-collinear points to have a non-empty solution is $3$ (triangle)
+Returns Numpy arrays of size $(n,)$ composed of the moved x and y of the figure.
+
+\begin{verbatim}
+burn_surface_circular(x, y, z, regression_rate, dt, min_param=1e-9,
+parallel_dot_thresh=0.9999, close_tol=1e-12, merge_tol=1e-9)
+-> return x_new, y_new
+\end{verbatim}
+\hspace*{2em} This function works equally as the previous one but filters also the points at the same radius. There is a mask for the sides that are circumference arcs, but the intersection method does not change, moving the midpoints on the chord of the arcs. The fallback condition changes for the points at the sides of an arc, moving them only radially.\\
+Moreover this function accepts in input Numpy arrays of size $(1,)$ which represent a circumference.\\
+Returns Numpy arrays of size $(n,)$ composed of the moved x and y of the figure.\\
+
+\begin{verbatim}
+burn_grain(x, y, z, regression_rate, dt, circular=False, min_param=1e-9,
+parallel_dot_thresh=0.9999, close_tol=1e-12, merge_tol=1e-9)
+-> return x_out, y_out
+\end{verbatim}
+\hspace*{2em} Wrapper function for easy calls to decide which burn function to use based on the \verb|circular| flag.\\
+Both functions have a series of helpers to remove self-intersecting or too-close points and avoid errors in the geometry.\\
+The performances were proven solid with high regressions and hundreads of iterations.
+
+\section{Dimensionalization functions}
+The following functions are meant to pass from an input geometry to a real one using a certain requirement. In particular they are meant to be used after the optimization, already discussed. They are available in \textit{Geometry//dimensionalize.py}.
+
+\begin{verbatim}
+dimensionalize_geometry(x, y, Dp, Lc, p=0.0)
+-> return x_1, y_1, L_1, p_1
+\end{verbatim}
+\hspace*{2em} Matches the required port area and burning area while keeping $\frac{p}{D_{eq}}$ ratio. To do so we calculate the port area of the initial geometry using \verb|calculate_surfaces_from_points(...)| and find the equivalent diameter
+\begin{equation}
+    D_{eq,0}=\sqrt{\frac{4A_p}{\pi}}
+\end{equation}
+and use it to find the needed values
+\begin{gather}
+    \begin{matrix}
+        x_1=\frac{D_p}{D_{eq,0}}x_0\\
+        y_1=\frac{D_p}{D_{eq,0}}y_0\\
+        p_1=\frac{D_p}{D_{eq,0}}p_0\\
+    \end{matrix}
+\end{gather}
+Finally, we use a reference length $L_{mid}$ for the geometry ($=p_1$ if non-zero or $=0.5L_c$), calculate the burning area using \verb|calculate_surfaces_from_points(...)| and find the actual length
+\begin{equation}
+    L_{c,1}=L_{mid}\frac{\pi D_pL_c}{A_b(x_1,y_1,L_{mid},p_1)}
+\end{equation}
+Returns the new geometry points x and y values as Numpy arrays of size $(n,)$, grain length and step.
+
+
+

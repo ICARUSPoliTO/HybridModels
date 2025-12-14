@@ -26,9 +26,14 @@ def dimensionalize_geometry(x, y, Dp, Lc, p=0.0):
     y_1 = Dp * y / Deq_0
     p_1 = Dp * p / Deq_0
 
-    Ap_mid, Ab_mid = geom.calculate_surfaces_from_points(x_1, y_1, p_1, p_1)
+    if p_1 > 0:
+        L_mid = p_1
+        Ap_mid, Ab_mid = geom.calculate_surfaces_from_points(x_1, y_1, L_mid, p_1)
+    else:
+        L_mid = 0.5*Lc # safe guess
+        Ap_mid, Ab_mid = geom.calculate_surfaces_from_points(x_1, y_1, L_mid, p_1)
 
-    L_1 = p_1 * Ab_wanted / Ab_mid
+    L_1 = L_mid * Ab_wanted / Ab_mid
 
     Ap_1, Ab_1 = geom.calculate_surfaces_from_points(x_1, y_1, L_1, p_1)
 

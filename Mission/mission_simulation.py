@@ -395,13 +395,13 @@ def run_one_step(pc, mdot_throat, Tc, MW, gamma, a, n, rho_fuel, pamb, ptank, Tt
     Tc, MW, gamma, m_c, dt = chamber.update_Temperature_and_gasproperties(pc, Tc, MW, gamma, Tc_CEA, MW_CEA, gamma_CEA,
                                                  mdot_ox, mdot_fuel, mdot_throat, Vol_chamber, tol)
 
-    pc = chamber.update_chamberpressure(m_c, Tc, MW, Vol_chamber)
-    mdot_throat = inj.gas_injection_custom(pc, pamb, Tc, 1, gamma, MW, eps) * At
-
     x, y = geom.burn_grain(x, y, z, r, dt, circular)
     Ap, Ab, Vol_chamber = geomcalc.fill_and_calculate_surfaces_and_volume(x, y, Lc, npointsperside, circular, pitch,
                                                                           Vol_prechamber, Vol_postchamber)
     m_fuel = geomcalc.calculate_fuel_mass(Ap, Lc, D_chamber, rho_fuel)
+
+    pc = chamber.update_chamberpressure(m_c, Tc, MW, Vol_chamber)
+    mdot_throat = inj.gas_injection_custom(pc, pamb, Tc, 1, gamma, MW, eps) * At
 
     ptank, Ttank, mL, entropies, masses, pressures, temperatures = tank.update_tank(mdot_ox, dt,
                                                                                     entropies, masses, volumes,

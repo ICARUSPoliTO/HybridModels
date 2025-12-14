@@ -199,7 +199,7 @@ def update_tank(mdotL, dt, entropies, masses, volumes, pressures, temperatures,
         CDvent = utilities["CDvent"]
         Avent = utilities["Avent"]
 
-        mdotG = injection.gas_injection(ptank, plim, Ttank, CDvent, oxidizer) * Avent
+        mdotG = injection.gas_injection(ptank, plim, Ttank, CDvent, oxidizer["OxidizerCP"]) * Avent
         m_new, mL_new, mG_new, Q_new, sL_new, sG_new, S_new, ptank_new, Ttank_new = (
             normal_tank.do_one_step(mdotL, mdotG, sL, sG, S, m, Q, oxidizer, Vtank, dt))
 
