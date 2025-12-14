@@ -248,7 +248,8 @@ pressures_out, temperatures_out
 \begin{verbatim}
 update_tank(mdotL, dt, entropies, masses, volumes, pressures, temperatures,
 utilities, oxidizer, pressurant=None, constant_pressure_tank = False)
--> return ptank_new, Ttank_new, mL_new, entropies_out, masses_out, pressures_out, temperatures_out
+-> return ptank_new, Ttank_new, mL_new, entropies_out, masses_out, 
+		  pressures_out, temperatures_out
 \end{verbatim}
 \hspace*{2em} Performs one time-step based on the \verb|constant\_pressure\_tank| flag.\\
 It should be noticed that, to avoid excessive input and output and hard-to-understand variables, it was chosen to use helper dictionaries for every type of property. They vary with the type of tank and are described in Table \ref{Tab: TankDicts}\\

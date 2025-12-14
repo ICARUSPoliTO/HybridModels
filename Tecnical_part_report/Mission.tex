@@ -6,17 +6,17 @@ The following functions were built to have an easy call in the main mission func
 
 \begin{verbatim}
 find_dt(Tc, MW, gamma, Tc_CEA, MW_CEA, gamma_CEA, 
-m_c_i, Dmdot_in, Dmdot_out, tol=1e-3)
+			m_c_i, Dmdot_in, Dmdot_out, tol=1e-3)
 -> return dt
 \end{verbatim}
 \hspace*{2em} Called inside the next function, returns the needed time step to have a variation in the thermodynamic properties under the required tolerance. It is calculated using the mixture of gases formulas:
 \begin{gather}
-    \begin{matrix}
-        m_{i+1}=m_i-\dot{m}_{out}dt+\dot{m}_{in}dt\\
-        c_{p,i+1}=\frac{(m_i-\dot{m}_{out}dt)c_{p,i}+\dot{m}_{in}dtc_{p,CEA}}{m_{i+1}}\\
-        T_{c,i+1}=\frac{(m_i-\dot{m}_{out}dt)T_{c,i}c_{p,i}+\dot{m}_{in}dtT_{c,CEA}c_{p,CEA}}{m_{i+1}}\\
-        MW_{i+1}=\frac{m_{c,i+1}}{\frac{m_i-\dot{m}_{out}dt}{MW_i}+\frac{\dot{m}_{in}dt}{MW_{CEA}}}
-    \end{matrix}
+    \begin{aligned}
+        m_{i+1}&=m_i-\dot{m}_{out}dt+\dot{m}_{in}dt\\
+        c_{p,i+1}&=\frac{(m_i-\dot{m}_{out}dt)c_{p,i}+\dot{m}_{in}dtc_{p,CEA}}{m_{i+1}}\\
+        T_{c,i+1}&=\frac{(m_i-\dot{m}_{out}dt)T_{c,i}c_{p,i}+\dot{m}_{in}dtT_{c,CEA}c_{p,CEA}}{m_{i+1}}\\
+        MW_{i+1}&=\frac{m_{c,i+1}}{\frac{m_i-\dot{m}_{out}dt}{MW_i}+\frac{\dot{m}_{in}dt}{MW_{CEA}}}
+    \end{aligned}
     \label{Eq: MixGas}
 \end{gather}
 Setting a relative tolerance for the generic value
@@ -27,7 +27,8 @@ we can finally find four different time-steps, leading us to the decision of tak
 
 \begin{verbatim}
 update_Temperature_and_gasproperties(pc, Tc, MW, gamma, Tc_CEA, MW_CEA, 
-gamma_CEA, mdot_ox, mdot_fuel, mdot_throat, Vol_chamber, tol=1e-3)
+										gamma_CEA, mdot_ox, mdot_fuel, mdot_throat, 
+										Vol_chamber, tol=1e-3)
 -> return Tc_actual, MW_actual, gamma_actual, m_c, dt
 \end{verbatim}
 \hspace*{2em} Calculates new gas properties using ideal gas state equation and mixture of gases relations in \ref{Eq: MixGas}. The first step is to calculate the mass of fluid inside the chamber
@@ -88,9 +89,10 @@ and use the \ref{Eq: Adiab}.
 
 \begin{verbatim}
 get_starting_conditions(pamb, Tamb, rho_fuel, x, y, Lc, D_chamber, 
-Vol_prechamber, Vol_postchamber, masses, volumes, pressures, temperatures, 
-oxidizer, pressurant=None, pitch=0.0, circular=False, 
-npointsperside=50, constant_pressure_tank=False)
+							Vol_prechamber, Vol_postchamber, masses, volumes, 
+							pressures, temperatures, 
+							oxidizer, pressurant=None, pitch=0.0, circular=False, 
+							npointsperside=50, constant_pressure_tank=False)
 -> return (pc, mdot_throat, Tc, MW, gamma,
             ptank, Ttank, mL, m_fuel,
             entropies, masses, pressures, temperatures,
@@ -100,9 +102,12 @@ npointsperside=50, constant_pressure_tank=False)
 
 \begin{verbatim}
 run_one_step_no_burn(pc, mdot_throat, Tc, MW, gamma, rho_fuel, pamb, ptank, 
-Ttank, eps, Ainj, At, Ap, Ab, Lc, Vol_chamber, D_chamber, x, y, 
-entropies, masses, volumes, pressures, temperatures, utilities, CD, oxidizer,
-pressurant=None, rend_CF = 1.0, constant_pressure_tank=False, tol=1e-3)
+						Ttank, eps, Ainj, At, Ap, Ab, Lc, Vol_chamber, D_chamber, 
+						x, y, 
+						entropies, masses, volumes, pressures, temperatures, utilities, 
+						CD, oxidizer,
+						pressurant=None, rend_CF = 1.0, 
+						constant_pressure_tank=False, tol=1e-3)
 -> return (pc, mdot_throat, Thrust, dt,
             Tc, MW, gamma, ptank, Ttank, eps,
             mL, m_fuel,
@@ -114,10 +119,13 @@ pressurant=None, rend_CF = 1.0, constant_pressure_tank=False, tol=1e-3)
 
 \begin{verbatim}
 run_one_step(pc, mdot_throat, Tc, MW, gamma, a, n, rho_fuel, pamb, ptank, 
-Ttank, eps, Ainj, At, Ap, Ab, Lc, Vol_chamber, Vol_prechamber, Vol_postchamber, 
-D_chamber, x, y, z, entropies, masses, volumes, pressures, temperatures, utilities,
-CD, oxidizer, fuel, pressurant=None, rend_cstar = 1.0, rend_CF = 1.0, pitch=0.0,
-circular=False, npointsperside=50, constant_pressure_tank=False, tol=1e-3)
+				Ttank, eps, Ainj, At, Ap, Ab, Lc, Vol_chamber, Vol_prechamber, 
+				Vol_postchamber, D_chamber, x, y, z, entropies, masses, volumes, 
+				pressures, temperatures, utilities,
+				CD, oxidizer, fuel, pressurant=None, 
+				rend_cstar = 1.0, rend_CF = 1.0, pitch=0.0,
+				circular=False, npointsperside=50, 
+				constant_pressure_tank=False, tol=1e-3)
 -> return (pc, mdot_throat, Thrust, dt,
             Tc, MW, gamma, ptank, Ttank, eps,
             mL, m_fuel,
@@ -127,7 +135,7 @@ circular=False, npointsperside=50, constant_pressure_tank=False, tol=1e-3)
             performances, flag)
 \end{verbatim}
 
-\hspace{2em} These two functions have the same output and are meant to be used inside an iteration (to have an easy call) and manage all the operations to update the values after one time-step. The explicit outputs are used directly in the next iteration or to control the termination, the implicit one \verb|performances| represents a dictionary with a series of important values to be given as an output. It's structure will be later discussed.
+\hspace{2em} These two functions have the same output and are meant to be used inside an iteration (to have an easy call) and manage all the operations to update the values after one time-step. The explicit outputs are used directly in the next iteration or to control the termination, the implicit one \verb|performances| represents a dictionary with a series of important values to be given as an output. 
 The workflow for the mission simulation is the one presented in Figure \ref{fig:flowchartstep}. The main difference between the burn and no-burn function are in point \textit{2)}, where only \verb|linelosses(...)| and \verb|massflow(...)| functions are used and the fluid properties are the oxidizer ones, and point \textit{4)}, that is skipped.
 \begin{figure}
     \centering
@@ -140,42 +148,34 @@ The \verb|performances| dictionary is built as in Table \ref{Tab: PerfDicts}.
 \begin{table}[h!]
 \centering
 \resizebox{\textwidth}{!}{
-\begin{tabular}{|l|}
+\begin{tabular}{l l}
 \hline
 \textbf{Common values}\\
 \hline
-Chamber pressure "pc" [Pa]\\
-Injection pressure "p\_inj" [Pa]\\
-Time step "dt" [s]\\
-Thrust "Thrust" [N]\\
-Oxidizer massflow "mdot\_ox" [kg/s]\\
-Fuel massflow "mdot\_fuel" [kg/s]\\
-Total inlet massflow "mdot" [kg/s]\\
-Total outlet massflow "mdot\_throat" [kg/s]\\
-Chamber total temperature "Tc" [K]\\
-Molecular weight "MW" [kg/kmol]\\
-Specific heat ratio "gamma"\\
-Expansion ratio "eps"\\
-Grain points x-coordinates "x" [m]\\
-Grain points y-coordinates "y" [m]\\
+Chamber pressure "pc" [Pa] & Burning area "Ab" [m$^2$]\\
+Injection pressure "p\_inj" [Pa] & Chamber internal volume "Vol\_chamber" [m$^3$]\\
+Time step "dt" [s]& Fuel mass "m\_fuel" [kg]\\
+Thrust "Thrust" [N] & Liquid mass in the tank "mL" [kg]\\
+Oxidizer massflow "mdot\_ox" [kg/s] & Tank pressure "ptank" [Pa]\\
+Fuel massflow "mdot\_fuel" [kg/s] & Tank temperature "Ttank" [K]\\
+Total inlet massflow "mdot" [kg/s] & Exit Mach "Me"\\
+Total outlet massflow "mdot\_throat" [kg/s] & Exit temperature "Te" [K]\\
+Chamber total temperature "Tc" [K] & Exit pressure "pe" [Pa]\\
+Molecular weight "MW" [kg/kmol] & Ambient pressure "pamb" [Pa]\\
+Specific heat ratio "gamma" & Entropy dictionary "entropies"\\
+Expansion ratio "eps" & Mass dictionary "masses"\\
+Grain points x-coordinates "x" [m] & Pressure dictionary "pressures"\\
+Grain points y-coordinates "y" [m] & Temperature dictionary "temperatures"\\
 Port area "Ap" [m$^2$]\\
-Burning area "Ab" [m$^2$]\\
-Chamber internal volume "Vol\_chamber" [m$^3$]\\
-Fuel mass "m\_fuel" [kg]\\
-Liquid mass in the tank "mL" [kg]\\
-Tank pressure "ptank" [Pa]\\
-Tank temperature "Ttank" [K]\\
-Exit Mach "Me"\\
-Exit temperature "Te" [K]\\
-Exit pressure "pe" [Pa]\\
-Ambient pressure "pamb" [Pa]\\
-Entropy dictionary "entropies"\\
-Mass dictionary "masses"\\
-Pressure dictionary "pressures"\\
-Temperature dictionary "temperatures"\\
 \hline
 \end{tabular}
-\begin{tabular}{|l|l|}
+}
+\end{table}
+
+\begin{table}[h!]
+\centering
+\resizebox{\textwidth}{!}{
+\begin{tabular}{l|l}
 \hline
 \textbf{No burn} & \textbf{Burn}\\
 \hline
@@ -198,5 +198,76 @@ Burn flag "burn": False & Burn flag "burn": True\\
 \caption{Performance keys and values for burn and no-burn conditions.}
 \label{Tab: PerfDicts}
 \end{table}
+\newpage
+\begin{verbatim}
+run_full_mission(burn_time, pamb, Tamb, a, n, rho_fuel,
+                     eps, Ainj, At, Lc, D_chamber,
+                     x, y, z,
+                     Vol_prechamber, Vol_postchamber,
+                     masses, volumes, pressures, temperatures, utilities,
+                     CD,
+                     oxidizer, fuel, pressurant=None,
+                     rend_cstar = 1.1, rend_CF = 1.1,
+                     pitch=0.0, circular=False, delay_time = 0.0, npointsperside=50, 
+					 constant_pressure_tank=False,
+                     tol=1e-3)
+->return time, performances_out, out_log
+\end{verbatim}
 
+\hspace{2em} Runs the step functions while the conditions are satisfied. First phase is delaied ignition (no burn), then combustion and at the end a final emptying of the tank.
+The conditions to be satisfied are the following:
+\begin{itemize}
+	\item $mL>0$ or \verb|full_gas_tank|
+	\item $m_{fuel}>0$
+	\item $max(\sqrt{x^2+y^2})<0.5D_{chamber}$
+\end{itemize}
+These are later used to check why the iteration stopped and write \verb|out_log|.
 
+\begin{verbatim}
+run_full_mission_iteration(burn_time, pamb, Tamb, a, n, rho_fuel,
+                     eps, Ainj, At, Lc, D_chamber,
+                     x, y, z,
+                     Vol_prechamber, Vol_postchamber,
+                     masses, volumes, pressures, temperatures, utilities,
+                     CD,
+                     oxidizer, fuel, pressurant=None,
+                     rend_cstar = 1.1, rend_CF = 1.1,
+                     pitch=0.0, circular=False, delay_time = 0.0, npointsperside=50, constant_pressure_tank=False,
+                     tol=1e-3)
+-> return time, performances_out, out_log
+\end{verbatim}
+\hspace{2em} Same as the previous function but there is no final emptying and \verb|out_log| is composed of bools for convergence verification to match the mission.
+
+\begin{verbatim}
+match_mission(burn_time, pamb, Tamb, a, n, rho_fuel,
+                     eps, Ainj, At, Lc, D_chamber,
+                     x, y, z,
+                     Vol_prechamber, Vol_postchamber, utilities,
+                     CD,
+                     mtank, Q,
+                     oxidizer, fuel, pressurant=None,
+                     rend_cstar = 1.1, rend_CF = 1.1,
+                     pitch=0.0, circular=False, delay_time = 0.0, npointsperside=50,
+                     tol=1e-3, ppress=1e5, ptank0=1e5, plim=None)
+-> return time, inputs, performances_out, out_log
+\end{verbatim}
+\hspace{2em} Runs \verb|run_full_mission_iteration(...)| while the required times are not reached with mass exceedings higher than $5\%$.
+To increase a certain value it is used a time proportional coefficient to update the starting value
+\begin{equation}
+	X_{new}=X_{old} \frac{t_{target}}{t_{real}}
+\end{equation}
+To simplify the description, a flowchart of the logic is shown in Figure \ref{fig:flowchartmatch}.
+\begin{figure}
+    \centering
+    \includegraphics[width=0.9\linewidth]{immagini/missionmatch_flowchart.png}
+    \caption{Mission match flowchart}
+    \label{fig:flowchartmatch}
+\end{figure}
+ It is important to notice that this function builds the tank, while the mission functions ask for a built tank, allowing the user to simulate a mission with a generic configuration.
+ 
+ \begin{verbatim}
+ normalize_performances(list_of_dict)
+ -> return dict_of_list
+ \end{verbatim}
+ \hspace{2em} The output of the mission simulation is a list of performances dictionaries, this helper function transforms it in a dictionary with the same keys and a list of values in the output.
+ If the key does not appear the value is \textit{None}, to avoid mismatches with burn and no-burn differences.

@@ -917,11 +917,11 @@ def match_mission(burn_time, pamb, Tamb, a, n, rho_fuel,
             D_chamber = D_chamber * (burn_time + delay_time) / out_log[1]["t"]
 
             if performances_out[-1]["mL"] > 0.05 * performances_out[0]["mL"]:  # Cut excess oxidizer
-                mtank = 1.05 * performances_out[-1]["mL"]
+                mtank = 1.05 * abs(performances_out[-1]["mL"] - performances_out[0]["mL"])
 
         else:
             if performances_out[-1]["mL"] > 0.05 * performances_out[0]["mL"]:  # Cut excess oxidizer
-                mtank = 1.05 * performances_out[-1]["mL"]
+                mtank = 1.05 * abs(performances_out[-1]["mL"] - performances_out[0]["mL"])
 
                 if performances_out[-1]["m_fuel"] > 0.05 * performances_out[0]["m_fuel"]: # Cut excess fuel
                     D_chamber = 1.05 * 2 * np.max(np.hypot(performances_out[-1]["x"], performances_out[-1]["y"]))
