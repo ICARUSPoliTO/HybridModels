@@ -96,9 +96,9 @@ def gas_injection(p1, p2, T, CD, fluid):
 
     return mdot
 
-def gas_injection_custom(p1, p2, T, CD, gamma, M):
+def gas_injection_custom(p1, p2, T, CD, gamma, M, eps=1.0):
     """
-    Ideal gas injection
+    Ideal gas injection. Accounts for divergent if eps is given.
     :param p1: Injection pressure [Pa]
     :param p2: Outer pressure [Pa]
     :param T: Temperature [K]
@@ -111,12 +111,15 @@ def gas_injection_custom(p1, p2, T, CD, gamma, M):
         R = 8314/M
 
         mdot = CD * p1/np.sqrt(R*T)
+
         gammone = np.sqrt(gamma * (2 / (gamma + 1)) ** ((gamma + 1) / (gamma - 1)))
         pe_pc_crit = (2 / (gamma + 1)) ** (gamma / (gamma - 1))
-        if (p2 / p1) < pe_pc_crit: # Is critical?
+        fpe = np.sqrt((2 * gamma) * ((p2 / p1) ** (2 / gamma) - (p2 / p1) ** ((gamma + 1) / gamma)) / (gamma - 1))
+
+        if ((p2 / p1) < pe_pc_crit) or (fpe >= gammone/eps): # Is critical?
             mdot = mdot * gammone
         else:
-            mdot= mdot * np.sqrt((2 * gamma) * ((p2 / p1) ** (2 / gamma) - (p2 / p1) ** ((gamma + 1) / gamma)) / (gamma - 1))
+            mdot= mdot * fpe * eps
     else:
         mdot = 0
 
@@ -229,7 +232,7 @@ if __name__ == '__main__':
     mdot_SPI= np.zeros(np.shape(pinj))
     mdot_HEM= np.zeros(np.shape(pinj))
 
-    #print('M='+str(cp.PropsSI('MOLARMASS', ox.fluid)*1e3))
+    print('M='+str(cp.PropsSI('MOLARMASS', ox.fluid)*1e3))
     ox.massflow(pinj, pc, Ttank, 1)
     mdot = ox.mdot * ox.A
     rho = cp.PropsSI('D', 'P', 0.5*(pc+pinj), 'T', Ttank, ox.fluid)

@@ -23,6 +23,20 @@ def plot_polygon(x, y, title=None):
         plt.title(title)
     plt.show()
 
+def is_between(value, a, b):
+    """
+    Support function for checking if a value is between a and b
+    :param value: value to check
+    :param a: first side
+    :param b: second side
+    :return: Boolean
+    """
+    start = min([a, b])
+    end = max([a, b])
+
+    result = (value >= start and value <= end)
+    return result
+
 def create_regular_poligon(n_sides, circum_radius):
     """
     Generates a regular poligon inscripted in the circumference.
@@ -86,17 +100,19 @@ def translate_figure(x, y):
     y_translated = y - yG
     return x_translated, y_translated
 
-def sort_input(x, y):
+def sort_input(x, y, z=1):
     """
-    This function sorts the (x, y) inputs to be couterclock-wise.
+    This function sorts the (x, y) inputs to be couterclock-wise or clock-wise depending on z.
     Use it carefully because it may change the desired geometry.
     :param x: np.array of x values
     :param y: np.array of y values
+    :param z: z=1 counterclock, z=-1 clockwise
     :return: x_sorted, y_sorted
     """
     thetas = np.atan2(y, x)
     thetas[thetas < 0] += 2 * np.pi
 
+    thetas = thetas * z
     sorted_indices = np.argsort(thetas)
     x_sorted = x[sorted_indices]
     y_sorted = y[sorted_indices]
@@ -135,8 +151,12 @@ def fill_borders_circumference(x, y, n_points_per_side):
     :param n_points_per_side: number of points between every x and y
     :return: x_fill, y_fill
     """
-    x2 = np.r_[x, x[0]]
-    y2 = np.r_[y, y[0]]
+    try:
+        x2 = np.r_[x, x[0]]
+        y2 = np.r_[y, y[0]]
+    except IndexError:
+        x2 = np.r_[x, x]
+        y2 = np.r_[y, y]
 
     x0 = x2[:-1]
     y0 = y2[:-1]
@@ -154,7 +174,11 @@ def fill_borders_circumference(x, y, n_points_per_side):
     theta0 = np.arctan2(y0, x0)  # (-pi, pi]
     theta1 = np.arctan2(y1, x1)
     delta = theta1 - theta0
+
     delta = (delta + np.pi) % (2.0 * np.pi) - np.pi
+
+    if delta == 0:
+        delta = np.array([2 * np.pi])
 
     t_row = t[None, :]  # (1,k)
 
@@ -235,115 +259,52 @@ def calculate_surfaces_from_points(x, y, lc, step=0.0):
 
     return PortArea, BurningArea
 
-def burn_surface(x, y, z, regression_rate, dt):
-    x2 = np.r_[x, x[0]]
-    y2 = np.r_[y, y[0]]
-
-    dx = np.diff(x2)
-    dy = np.diff(y2)
-    dr = np.hypot(dx, dy)
-
-    dx = dx/dr
-    dy = dy/dr
-    tangentials = np.vstack((dx, dy)).T
-
-
-
-if __name__ == "__main__":
-    #lc = 2  # lunghezza del grano [m]
-    radius = 8
-    step = 26.336  # passo elica [m]
-    lc = step
-    n_points_per_side = 50
-
-    # ---- Test 1: quadrato semplice ----
-    # definisco quadrato non centrato e punti in ordine casuale
-    #x_sq = np.array([2.0, 2.0, 0.0, 0.0])
-    #y_sq = np.array([0.0, 2.0, 2.0, 0.0])
-    x_sq, y_sq = create_regular_poligon(6, radius)
-    # mischio gli indici per simulare input disordinato
-    perm = np.random.permutation(len(x_sq))
-    x_sq_shuffled = x_sq[perm]
-    y_sq_shuffled = y_sq[perm]
-
-    print("==== TEST 1: Quadrato (lato=2) ====")
-
-    # trasla e ordina
-    x_t, y_t = translate_figure(x_sq_shuffled, y_sq_shuffled)
-    x_s, y_s = sort_input(x_t, y_t)
-
-
-    x_f, y_f = fill_borders(x_s, y_s, n_points_per_side)
-
-    # calcolo superfici
-    port_area, burning_area = calculate_surfaces_from_points(x_f, y_f, lc)
-    print(f"Quadrato: PortArea = {port_area:.6f} m^2 ; BurningArea (step=0) = {burning_area:.6f} m^2")
-    # atteso: PortArea ~ 4 (area quadrato lato 2), ma nota: funzione somma aree triangoli con origine -> area effettiva interna
-    # per quadrato centrato l'area dovrebbe essere 4.0
-
-    port_area4, burning_area4 = calculate_surfaces_from_points(x_f, y_f, lc, step)
-    print(f"Quadrato: PortArea = {port_area4:.6f} m^2 ; BurningArea (step={step:.3f}) = {burning_area4:.6f} m^2")
-
-    # ---- Test 2: poligono irregolare (approssimazione cerchio) ----
-    theta = np.linspace(0, 2 * np.pi, 50, endpoint=False)
-    r = 1.0 + 0.2 * np.cos(3 * theta)  # forma non convessa ma chiusa
-    x_poly = (r * np.cos(theta)) + 0.5  # traslato per test translate
-    y_poly = (r * np.sin(theta)) - 0.3
-
-    print("\n==== TEST 2: Poligono irregolare ====")
-
-
-    x_t2, y_t2 = translate_figure(x_poly, y_poly)
-    x_s2, y_s2 = sort_input(x_t2, y_t2)
-
-    port_area2, burning_area2 = calculate_surfaces_from_points(x_s2, y_s2, lc)
-    print(f"Poligono: PortArea = {port_area2:.6f} m^2 ; BurningArea (step=0) = {burning_area2:.6f} m^2")
-
-    # ---- Test 3: burning area with step > 0 (esempio) ----
-
-    port_area3, burning_area3 = calculate_surfaces_from_points(x_s2, y_s2, lc, step)
-    print(f"Poligono (step={step} m): PortArea = {port_area3:.6f} m^2 ; BurningArea (step={step:.3f}) = {burning_area3:.6f} m^2")
-
-    # ---- Quick numeric checks: confronto area con shoelace ----
-    def shoelace_area(x, y):
-        x = np.asarray(x);
-        y = np.asarray(y)
-        x2 = np.r_[x, x[0]]
-        y2 = np.r_[y, y[0]]
-        return 0.5 * np.abs(np.sum(x2[:-1] * y2[1:] - x2[1:] * y2[:-1]))
-
-
-    area_shoelace_sq = shoelace_area(x_s, y_s)
-    area_shoelace_poly = shoelace_area(x_s2, y_s2)
-    print("\nConfronti con shoelace:")
-    print(f"Quadrato: PortArea (triangles) = {port_area:.6f}, Shoelace = {area_shoelace_sq:.6f}")
-    print(f"Poligono: PortArea (triangles) = {port_area2:.6f}, Shoelace = {area_shoelace_poly:.6f}")
-
+def fill_and_calculate_surfaces_and_volume(x, y, lc, n_pointsperside=20, circular=False,
+                                           step=0.0, Vol_prechamber=0.0, Vol_postchamber=0.0):
     """
-    plot_polygon(x_sq_shuffled, y_sq_shuffled, title='Quadrato (shuffled input)')
-    plot_polygon(x_s, y_s, title='Quadrato (translated + sorted CCW)')
-    plot_polygon(x_f, y_f, title='Quadrato (filled borders)')
-    plot_polygon(x_poly, y_poly, title='Poligono irregolare (input)')
-    plot_polygon(x_s2, y_s2, title='Poligono irregolare (translated + sorted CCW)')
+    Helper function for mission simulation: fills the points and calculates the geometry values needed.
+    :param x: x-values [m]
+    :param y: y_values [m]
+    :param lc: Chamber-length [m]
+    :param n_pointsperside: points per side to fill every space between points
+    :param circular: Bool
+    :param step: helix step [m]
+    :param Vol_prechamber: Prechamber volume [m^3]
+    :param Vol_postchamber: Postchamber volume [m^3]
+    :return: A_port: Port Area [m^2],
+             A_burn: Burning Area [m^2],
+             Vol_chamber: Chamber volume [m^3]
     """
+    if circular:
+        x_fill, y_fill = fill_borders_circumference(x,y,n_pointsperside)
+    else:
+        x_fill, y_fill = fill_borders(x,y,n_pointsperside)
 
-    # Assert ragionevoli (tolleranza)
-    tol = 1e-6
-    assert abs(port_area - area_shoelace_sq) < 1e-8 or abs(port_area - area_shoelace_sq) / max(area_shoelace_sq,
-                                                                                               1e-12) < 1e-6, "PortArea mismatch for square"
-    assert abs(port_area2 - area_shoelace_poly) < 1e-6 or abs(port_area2 - area_shoelace_poly) / max(area_shoelace_poly,
-                                                                                                     1e-12) < 1e-6, "PortArea mismatch for polygon"
+    A_port, A_burn = calculate_surfaces_from_points(x_fill, y_fill, lc, step)
 
-    print("\nTutti i test completati con successo.")
+    Vol_chamber = (A_port * lc) + Vol_prechamber + Vol_postchamber
 
-    x_inst = np.array([2.0, 2.0, 0.0])
-    y_inst = np.array([0.0, 2.0, 2.0])
-    x_rep, y_rep = create_repeated_instance(x_inst, y_inst, 2)
-    plot_polygon(x_rep, y_rep, title='Poligono ripetuto')
-    x_fillc, y_fillc = fill_borders_circumference(x_rep, y_rep, 50)
-    plot_polygon(x_fillc, y_fillc, title='Poligono ripetuto')
+    return A_port, A_burn, Vol_chamber
 
+def calculate_fuel_mass(Ap, lc, D_chamber, fuel_density):
+    """
+    Helper function for mission simulation: calculates the fuel mass considering remaining volume.
+    :param Ap: Port Area [m^2]
+    :param lc: Chamber-length [m]
+    :param D_chamber: Maximum chamber diameter [m]
+    :param fuel_density: Fuel density [kg/m^3]
+    :return: mfuel: Fuel mass [kg]
+    """
+    empty_volume = Ap * lc
+    full_volume = 0.25 * np.pi * (D_chamber**2) * lc
+    remaining_volume = full_volume - empty_volume
+    mfuel = remaining_volume * fuel_density
 
+    return mfuel
 
+if __name__ == '__main__':
+    Ap, Ab, Vol = fill_and_calculate_surfaces_and_volume(np.array([0.03]), np.array([0.0]), 1, 20, True)
 
+    print(Ap, Ab, Vol)
 
+# end of file

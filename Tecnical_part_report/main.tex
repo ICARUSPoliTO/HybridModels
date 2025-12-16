@@ -1,0 +1,123 @@
+\documentclass[a4paper,12pt]{report} 
+\usepackage[T1]{fontenc}                                          %codifica dei font
+\usepackage[utf8]{inputenc}                                     %lettere accentate da tastiera
+\usepackage[english]{babel}
+%lingua del documento
+\usepackage{graphicx}   %inserimento immagini
+\usepackage{subcaption}
+\setlength\parindent{0pt}                                           %tolgo rientri a inizio paragrafo
+\usepackage{titlesec}                                                 %modifica scritta capitolo
+\usepackage{float}
+\usepackage{geometry}                                             %serve per i margini assieme a quello sott
+\usepackage[backend=biber,style=numeric,sorting=nyt]{biblatex}
+\addbibresource{ref.bib}
+
+\geometry{a4paper,top=3cm,bottom=2.5cm,left=2cm,right=2cm}  %dimensione margini
+\usepackage[table,dvipsnames]{xcolor}
+\usepackage{subfig}
+\titleformat{\chapter}{}{}{0em}{\bfseries\LARGE\ifnum\value{chapter}>0\relax\arabic{chapter}.~\fi} %elimino scritta capitolo al loro inizio
+\usepackage{titlesec}
+\titlespacing*{\chapter}{0pt}{-20pt}{20pt}
+\usepackage[colorlinks,citecolor=black,linkcolor=black,urlcolor=black]{hyperref}
+\usepackage[font=footnotesize,labelfont=bf]{caption} 
+\usepackage{hypcap}
+\usepackage{wrapfig}
+\usepackage{placeins}
+%\titlespacing*{\chapter}{0pt}{0pt}{2pt}
+\usepackage{amsmath}
+\usepackage{import}
+\usepackage{transparent}
+\usepackage{adjustbox}
+\usepackage{textcomp}
+\usepackage{eurosym}
+\usepackage{tikz}
+\usepackage{soul}
+\usetikzlibrary{tikzmark,decorations.pathreplacing}
+\usepackage{pifont}
+\usepackage{pdfpages}
+\usepackage{appendix}
+\usepackage{hyperref} %serve per inserire il link
+%\newcommand{\mychapter}[2]{
+%    \setcounter{chapter}{#1}
+%    \setcounter{section}{0}
+%    \chapter*{#2}
+%    \addcontentsline{toc}{chapter}{#2}
+%}
+
+%QUESTO BLOCCO SERVE PER L'HEADING
+\setlength{\headheight}{14.5pt}
+\usepackage{fancyhdr}                     % get some nice header and footer options
+\fancyhf{}                                % clear all header and footers
+\lhead{{\slshape\nouppercase \rightmark}} %section name left side of header
+\rhead{\thepage}                          %current page on right side of header
+\pagestyle{fancy}
+%FINO QUI PER HEADING
+
+
+\begin{document}
+\begin{titlepage}
+\begin{center}
+
+\begin{figure}[h]
+    \begin{center}
+        \includegraphics[width=12cm]{immagini/ICARUS Nero sfondo bianco.png}
+    \end{center}
+\end{figure}
+
+{\color{gray} \line(1,0){300}}\\[0.15cm]
+{\Large ICARUS PoliTO - APA}\\[0.4cm]
+{\bfseries \huge{HRE Design: Theory and models}}\\[0.3cm]
+{\Large Version 1-00}\\
+{\color{gray} \line(1,0){300}}\\
+
+\vfill
+\begin{figure}[h!]
+\begin{center}
+\includegraphics[width=0.5\columnwidth]{immagini/polito_black.png}
+\end{center}
+\end{figure}
+
+{\Large 09 December 2025}\\[0.5cm]
+
+\end{center}
+\end{titlepage}
+
+
+\newpage
+\thispagestyle{empty}
+
+\section*{Authors}
+Cristian Casalanguida\\
+
+\section*{Abstract}
+To develop a Hybrid Rocket Engine it is important to possess the ability of predicting performances and costs in terms of propellant mass and volumes. To accomplish this task, different models for each component are needed.
+
+\renewcommand{\contentsname}{Index}
+\tableofcontents %genera index
+
+\chapter{Introduction}
+The main focus will be on the description of the main components needed for the engine and how they are modeled. The components are the following:
+\begin{itemize}
+    \item Oxidizer tank
+    \item Feeding line
+    \item Injector
+    \item Combustion chamber
+    \item Fuel grain
+    \item Nozzle
+\end{itemize}
+Moreover, to find the best configurations, an optimization  is required.
+\newpage
+
+\input{Tank}
+\input{Line}
+\input{Injection}
+\input{Performance}
+\input{Optimisation}
+\input{Geometry}
+\input{Mission}
+
+\input{Conclusions}
+\input{ReferencesBibliography}
+\input{Appendices}
+
+\end{document}

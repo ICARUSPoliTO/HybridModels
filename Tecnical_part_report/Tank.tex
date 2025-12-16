@@ -1,0 +1,296 @@
+\newpage
+\chapter{Tank}
+A self-pressurizing fluid is characterized by a high vapor pressure and evaporating it can reduce the pressure drop in blow-down tanks
+A tank full of oxidizer should be modeled according to the fluid properties; in particular, there are three main possible solutions:
+\begin{itemize}
+    \item Self-pressurizing liquid
+    \item Pressurized gas
+    \item Constant pressure liquid with pressurant
+\end{itemize}
+\section{Self-pressurizing}
+A self-pressurizing model for tank blow-down is taken from \cite{Selfpress} and uses the CoolProp library in Python \cite{doi:10.1021/ie4033999}.\\
+The model considers the tank to be isoentropic, considering the loss due to outflow:\\
+\begin{equation}
+    {s_{i+1}=\frac{s_{i}m_i-s_{L,i} \dot{m}_Ldt-s_{G,i} \dot{m}_Gdt}{m_i - \dot{m}_Ldt - \dot{m}_Gdt}}
+\end{equation}
+Knowing the mass and volume in every instant, it is possible to determine the total density. From density and total specific entropy we find vapor quality, pressure and temperature through the built-in fluid tables.\\
+
+\subsection{Functions}
+The functions to perform the calculations are in \textit{Tank//tank\_simulation.py}.\\
+\begin{verbatim}
+do_one_step(mdotL, mdotV, sL, sV, S, m, Q, oxidizer, Vtank, dt) 
+-> return m_new, mL_new, mV_new, Q_new, sL_new, sV_new, S_new, ptank_new, Ttank_new
+\end{verbatim}
+\hspace*{2em} Performs a single step of the blow-down. Input and output description in Table \ref{Tab: StepSelf-press}.
+\begin{table}[h!]
+\centering
+\begin{tabular}{l|l}
+\hline
+\textbf{Input at time \textit{i}} & \textbf{Output at time \textit{i+1}} \\
+\hline
+Liquid mass flow [kg/s] & Total mass [kg] \\
+Vapor mass flow (through venting) [kg/s] & Liquid mass [kg] \\
+Liquid specific entropy [J/(kgK)] & Vapor mass [kg] \\
+Vapor specific entropy [J/(kgK)] & Vapor quality ($\frac{m_V}{m_L}$) \\
+Total entropy [J/K] & Liquid specific entropy [J/(kgK)] \\
+Total mass [kg] & Vapor specific entropy [J/(kgK)] \\
+Vapor quality ($\frac{m_V}{m_L}$) & Total entropy [J/K] \\
+Oxidizer dictionary \{"OxidizerCP": CoolProp fluid name\} & Tank pressure [Pa] \\
+Tank volume [m$^3$] & Tank temperature [K] \\
+Time step [s] & \\
+\hline
+\end{tabular}
+\caption{Step function input and output for self-pressurizing tank.}
+\label{Tab: StepSelf-press}
+\end{table}
+
+\begin{verbatim}
+create_tank(m, Q, T, oxidizer, p=1e5)
+-> return Vtank
+\end{verbatim}
+\hspace*{2em} Creates a self-pressurizing fluid tank: calculates each phase density and then combines them with vapor quality and total mass to get the volume. Input and output description in Table \ref{Tab: CreateSelf-press}.
+\begin{table}[h!]
+\centering
+\begin{tabular}{l|l}
+\hline
+\textbf{Input at time 0} & \textbf{Output at time 0} \\
+\hline
+Total mass [kg] & Tank volume [m$^3$] \\
+Vapor quality &  \\
+Ambient temperature [K] &  \\
+Oxidizer dictionary \{"OxidizerCP": CoolProp fluid name\} &  \\
+\hline
+\end{tabular}
+\caption{create\_tank input and output for self-pressurizing tank.}
+\label{Tab: CreateSelf-press}
+\end{table}
+
+\begin{verbatim}
+starting_conditions(m0, T0, Vtank, oxidizer)
+-> ptank0, sL0, sV0, mL0, mV0, Q0, s0, S0
+\end{verbatim}
+\hspace*{2em} Calculates the inputs needed for the step function at time 0. Input and output description in Table \ref{Tab: StartSelf-press}.
+\begin{table}[h!]
+\centering
+\begin{tabular}{l|l}
+\hline
+\textbf{Input} & \textbf{Output} \\
+\hline
+Total mass [kg] & Tank pressure [Pa] \\
+Ambient temperature [K] & Liquid specific entropy [J/(kgK)] \\
+Tank volume [m$^3$] & Vapor specific entropy [J/(kgK)] \\
+Oxidizer dictionary \{"OxidizerCP": CoolProp fluid name\} & Liquid mass [kg] \\
+ & Vapor mass [kg] \\
+ & Vapor quality \\
+ & Total specific entropy [J/(kgK)] \\
+ & Total entropy [J/K] \\
+\hline
+\end{tabular}
+\caption{Starting conditions input and output for self-pressurizing tank.}
+\label{Tab: StartSelf-press}
+\end{table}
+\section{Pressurized gas}
+A pressurized gas in blow-down has a pressure drop without any positive effect, the strategy is to have the highest starting pressure.
+\subsection{Functions}
+The functions to perform the calculations are in \textit{Tank//tank\_simulation.py}.\\
+They can be used without significant changes: to create the tank it is enough to insert 1 as quality and give the optional input of tank pressure.
+\section{Constant pressure}
+This configuration is composed of a pressure vessel, used to keep the pressure as constant as possible, and a propellant tank, pressurized at the regulation pressure to be kept.
+The model is based on the self-pressurizing one, considering the system to be isoentropic. In this case the entropy is transferred from the pressure vessel to the tank ullage.
+\subsection{Functions}
+The functions to perform the calculations are in \textit{Tank//tank\_pressurant\_simulation.py}.\\
+\begin{verbatim}
+do_one_step(mdotL, mdotG, mdotpress, sL, sG, spress, mL, mG, mpress, T_tank, 
+propellant, pressurant, Vtank, Vpress, dt)
+-> return mL_new, mG_new, mpress_new, sL_new, sG_new,
+spress_new, ptank_new, Ttank_new, p_press_new, T_press_new
+\end{verbatim}
+\hspace*{2em} Calculates the needed output after one time-step. Pressure is calculated using entropy and density to confirm the constant pressure behaviour. Input and output description in Table \ref{Tab: StepPressurised}.
+\begin{table}[h!]
+\centering
+\begin{tabular}{l|l}
+\hline
+\textbf{Input at time \textit{i}} & \textbf{Output at time \textit{i+1}}\\
+\hline
+Liquid mass flow [kg/s] & Liquid mass [kg] \\
+Gass mass flow (through venting and refill) [kg/s] & Gas mass [kg] \\
+Pressurant mass flow (through refill) [kg/s] & Pressurant mass [kg] \\
+Liquid specific entropy [J/(kgK)] & Liquid specific entropy [J/(kgK)]\\
+Gas specific entropy [J/(kgK)] & Gas specific entropy [J/(kgK)]\\
+Pressurant specific entropy [J/(kgK)] & Pressurant specific entropy [J/(kgK)]\\
+Liquid mass [kg] & Tank pressure [Pa]\\
+Gas mass [kg] & Tank temperature [K]\\
+Pressurant mass [kg] & Pressure vessel pressure [Pa]\\
+Tank temperature [K] & Pressure vessel temperature [K]\\
+Propellant CoolProp name & \\
+Pressurant CoolProp name & \\
+Tank volume [m$^3$] & \\
+Pressure vessel volume [m$^3$] & \\
+Time step [s] & \\
+\hline
+\end{tabular}
+\caption{Step function input and output for constant pressure tank.}
+\label{Tab: StepPressurised}
+\end{table}
+\begin{verbatim}
+create_pressurant_tank(T0, P0, V_propellant, p_reg, pressurant)
+-> return V0
+\end{verbatim}
+\hspace*{2em} This function creates the pressure vessel considering adiabatic discharge, input and output description in Table \ref{Tab: CreatePressurised}: from \textit{First thermodynamic principle} we have
+\begin{equation}
+    \Delta U=U_2-U_1 =L=-pV_p
+\end{equation}
+with
+\begin{equation*}
+    U_1 = m_0c_vT_0
+\end{equation*}
+(values refer to pressure vessel' starting conditions)
+\begin{equation*}
+    U_2 = m_gc_vT_g + mc_vT
+\end{equation*}
+(first term refers to pressure vessel's final conditions, second to gas in the tank's final conditions)\\
+With some \textit{trivial} calculations we finally obtain
+\begin{equation}
+    V_0=\frac{\gamma pV_p}{p_0-p_g}
+\end{equation}
+with
+\begin{itemize}
+    \item $\gamma$: specific heat ratio of the pressurant
+    \item $p$: tank pressure [Pa]
+    \item $V_p$: tank volume [m$^3$]
+    \item $p_0$: starting vessel pressure [Pa]
+    \item $p_g$: final vessel pressure, assumed $1.2p$ [Pa]
+\end{itemize}
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{l|l}
+\hline
+\textbf{Input} & \textbf{Output}\\
+\hline
+Ambient temperature [K] & Pressure vessel volume [m$^3$]\\
+Vessel pressure [Pa] & \\
+Propellant volume [m$^3$] & \\
+Tank pressure [Pa] & \\
+Pressurant CoolProp name & \\
+\hline
+\end{tabular}
+\caption{create\_pressurant\_tank input and output for constant pressure tank.}
+\label{Tab: CreatePressurised}
+\end{table}
+
+\begin{verbatim}
+create_propellant_tank(mp0, p0, T0, Q0, propellant, pressurant)
+-> return V_tank, V_liq
+\end{verbatim}
+\hspace*{2em} Calculates the tank volume and liquid volume with a given ullage of pressurant (assumes the liquid is kept above vapor pressure). Input and output description in Table \ref{Tab: CreateProp}.
+\begin{table}[h!]
+\centering
+\begin{tabular}{l|l}
+\hline
+\textbf{Input} & \textbf{Output}\\
+\hline
+Propellant mass [kg] & Tank volume [m$^3$]\\
+Tank pressure [Pa] & Liquid volume [m$^3$]\\
+Ambient temperature [K] & \\
+Vapor quality & \\
+Propellant CoolProp name & \\
+Pressurant CoolProp name & \\
+\hline
+\end{tabular}
+\caption{create\_propellant\_tank input and output for constant pressure tank.}
+\label{Tab: CreateProp}
+\end{table}
+
+\begin{verbatim}
+starting_conditions(mL, T, ptank, ppress, Vtank, Vpress, propellant, pressurant)
+->return sL, sG, spress, mG, mpress
+\end{verbatim}
+\hspace*{2em} Calculates the needed input for the step function. Input and output description in Table \ref{Tab: StartingPress}.
+\begin{table}[h!]
+\centering
+\begin{tabular}{l|l}
+\hline
+\textbf{Input at time 0} & \textbf{Output at time 0}\\
+\hline
+Propellant mass [kg] & Liquid specific entropy [J/(kgK)] \\
+Ambient temperature [K] & Ullage gas specific entropy [J/(kgK)] \\
+Tank pressure [Pa] & Pressurant specific entropy [J/(kgK)]\\
+Vessel pressure [Pa] & Ullage mass [kg]\\
+Tank volume [m$^3$] & Pressurant mass [kg]\\
+Pressure vessel volume [m$^3$] & \\
+Propellant CoolProp name & \\
+Pressurant CoolProp name & \\
+\hline
+\end{tabular}
+\caption{starting\_condition input and output for constant pressure tank.}
+\label{Tab: StartingPress}
+\end{table}
+
+\section{Wrapper}
+To use one of the three possible tank configurations a series of wrap functions are available in \textit{Tank//tank\_update.py}.
+\begin{verbatim}
+build_tank(m, Q, T, oxidizer, pressurant=None, ppress=1e5, p=1e5, plim=None)
+-> return masses, volumes, pressures, temperatures, constant_pressure_tank
+\end{verbatim}
+\hspace*{2em} Chooses which function should be used to build the tank. To begin it tries to get the vapor pressure, if it cannot the fluid is super-critic at the given temperature, so it will be full gas (vapor quality overwritten to 1).
+If it is full gas, it lowers the pressure at vapor pressure if it's higher to avoid liquid formation.
+If quality is lower than 1 (liquid phase is present) and pressure is higher than vapor pressure, it is a constant pressure tank (flag set as True), else it is self-pressurized or full gas.
+
+\begin{verbatim}
+start_conditions(masses, volumes, pressures, temperatures,
+oxidizer, pressurant=None, constant_pressure_tank = False)
+-> return ptank, Ttank, mL, entropies_out, masses_out,
+pressures_out, temperatures_out
+\end{verbatim}
+\hspace*{2em} Based on the \verb|constant\_pressure\_tank| flag, it selects the needed starting conditions function.
+
+\begin{verbatim}
+update_tank(mdotL, dt, entropies, masses, volumes, pressures, temperatures,
+utilities, oxidizer, pressurant=None, constant_pressure_tank = False)
+-> return ptank_new, Ttank_new, mL_new, entropies_out, masses_out, 
+		  pressures_out, temperatures_out
+\end{verbatim}
+\hspace*{2em} Performs one time-step based on the \verb|constant\_pressure\_tank| flag.\\
+It should be noticed that, to avoid excessive input and output and hard-to-understand variables, it was chosen to use helper dictionaries for every type of property. They vary with the type of tank and are described in Table \ref{Tab: TankDicts}\\
+\begin{table}[h!]
+\centering
+\resizebox{\textwidth}{!}{
+\begin{tabular}{l|l|l}
+\hline
+& \textbf{Constant pressure} & \textbf{Full gas or self-pressurizing}\\
+\hline
+
+masses & Liquid mass "mL" [kg] & Total mass "m" [kg]\\
+& Gas mass "mG" [kg] & Vapor quality "Q"\\
+& Pressurant mass "mpress" [kg] & Liquid mass "mL" [kg]\\
+& Vent outflow "mdot\_vent" [kg/s] & Vapor mass "mG" [kg]\\
+& & Vent outflow "mdot\_vent" [kg/s]\\
+\hline
+entropies & Liquid specific entropy "sL" [J/(kgK)] & Liquid specific entropy "sL" [J/(kgK)]\\
+& Gas specific entropy "sG" [J/(kgK)] & Vapor specific entropy "sG" [J/(kgK)]\\
+& Pressurant specific entropy "spress" [J/(kgK)] & Total entropy "S" [J/K]\\
+\hline
+pressures & Vessel pressure "ppress" [Pa] & Tank pressure "ptank" [Pa]\\
+& Tank pressure "ptank" [Pa] & Tank limit pressure "plim" [Pa]\\
+& Tank limit pressure "plim" [Pa] & \\
+\hline
+temperatures & Pressurant temperature "Tpress" [K] & Tank temperature "Ttank" [K]\\
+& Tank temperature "Ttank" [K] & \\
+\hline
+volumes & Tank volume "Vtank" [m$^3$] & Tank volume "Vtank" [m$^3$]\\
+& Pressure vessel volume "Vpress" [m$^3$] & \\
+\hline
+utilities & Pressurant line discharge coefficient "CDpress" & Venting valve discharge coefficient "CDvent"\\
+& Pressurant line injection area "Apress" [m$^2$] & Venting valve outlet area "Avent" [m$^2$]\\
+& Venting valve discharge coefficient "CDvent" & \\
+& Venting valve outlet area "Avent" [m$^2$] & \\
+\hline
+\end{tabular}
+}
+\caption{Helper dictionaries keys and values for different tank configurations.}
+\label{Tab: TankDicts}
+\end{table}
+
+A final consideration is that this kind of wrapping allows for a fouth kind of tank, a pressurised liquid in blow-down from a given pressure. The simple trick is to consider a pressurant line injection area equal to 0.
+This configuration is meant to allow an easy implementation of the same functions in case of a \textit{bi-liquid propellant engine}.
