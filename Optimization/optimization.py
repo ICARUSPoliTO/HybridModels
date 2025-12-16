@@ -67,9 +67,10 @@ def starting_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank, CD, a, n, rho_fuel
     i_min = np.argmin(np.abs(Fpcs)) # absolute value!!!!!!!
     pc_best = pc_range[i_min]
 
+    """
     if np.all(abs(Fpcs)==Fpcs) or np.all(-abs(Fpcs)==Fpcs):
         pc_best = 0 # No zero can be found, don't waste time
-
+    """
     return pc_best
 
 

@@ -89,7 +89,6 @@ def runCEA(pc, MR, eps, oxCEA, fuelCEA):
 
     return output_list
 
-
 def writemap(pc, MR, eps, oxCEA, fuelCEA, output_list):
 
     if output_list != []:

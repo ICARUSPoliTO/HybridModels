@@ -1,3 +1,63 @@
 \newpage
 \chapter{Optimisation}
 The purpose of these functions is to find the best configuration for a certain fuel/oxidizer combination.
+The optimisation method used is a global optimisation, in a range of the following geometrical parameters:
+\begin{gather}
+\begin{align}
+	\frac{D_{inj}}{D_t} &\in (0,1)\\
+	\frac{D_{p}}{D_t} &> 1\\
+	\frac{L_c}{D_t} &> 1
+\end{align}
+\end{gather}
+which are the injection (equivalent) diameter, port diameter and grain length.\\
+For each configuration it is needed to find the stationary pressure, the one reached when inlet and
+outlet mass flow are equal.
+\section{Functions}
+The following functions are available in \textit{Optimization//optimization.py}.
+\begin{verbatim}
+starting_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank, CD, a, n, 
+				rho_fuel, oxidizer, fuel, pamb=0.0, gamma0=1.3)
+-> return pc_best
+\end{verbatim}
+\hspace{2em} Finds the best pressure to start the calculation to find the chamber pressure.
+It is found in a range of 200 equally spaced points between $p_{amb}$ and $0.8p_{inj}$
+and other 200 points between $0.8p_{inj}$ and $p_{inj}$. This particular division is due to the fact that
+typically the zero of the pressure function \ref{eq:PressFunction} is in the final part.
+To find the best start, for each pressure the pressure function is calculated and the one with the minimum absolute value is selected.
+
+\begin{verbatim}
+get_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank, CD, a, n, 
+			rho_fuel, oxidizer, fuel, pamb=0.0, gamma0=1.3)
+-> return pc, Fpc, n_iter, maxit, gamma0
+\end{verbatim}
+\hspace{2em} Finds the zero of the pressure function \ref{eq:PressFunction} using a Newton-Raphson method
+with a fallback measure that increments the slope of the tangential if the point falls out of the range $(p_{amb},p_{inj})$.
+
+\begin{verbatim}
+full_range_simulation(Dport_Dt_range, Dinj_Dt_range, Lc_Dt_range, eps, ptank, Ttank,
+					CD, a, n, rho_fuel, oxidizer, fuel, pamb=0.0, gamma0=1.3)
+-> return (pc_array, Fpc_array, p_inj_array, mdot_ox_array, mdot_fuel_array, 
+			mdot_array, Gox_array, r_array, MR_array, eps_array, Tc_array, 
+			MW_array, gamma_array, cs_array, CF_vac_array, CF_array, Ivac_array, 
+			Is_array, flag_array)
+\end{verbatim}
+\hspace{2em} Finds the steady pressure and calculates all the perfomances for each configuration, given by the combination of the three parameters.
+Returns Numpy arrays of size $(n_{D_p},n_{D_{inj}},n_{L_c})$.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
