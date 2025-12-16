@@ -43,8 +43,33 @@ full_range_simulation(Dport_Dt_range, Dinj_Dt_range, Lc_Dt_range, eps, ptank, Tt
 \end{verbatim}
 \hspace{2em} Finds the steady pressure and calculates all the perfomances for each configuration, given by the combination of the three parameters.
 Returns Numpy arrays of size $(n_{D_p},n_{D_{inj}},n_{L_c})$ with all the performances and needed values.
+\section{Dimensionalization functions}
+The following functions are meant to get the real configuration given a mission or geometrical requirement.
+Available in \textit{Optimisation//dimensionalize\_parameters.py}.
 
+\begin{verbatim}
+Thrust2Rocket(F, Dinj_Dt, Dp_Dt, Lc_Dt, mdot_ox_Dtsq, mdot_fuel_Dtsq, mdot_Dtsq, pc, CF, rend_CF = 1.0)
+-> return Dinj, Dp, Lc, Dt, mdot_ox, mdot_fuel, mdot
+\end{verbatim}
+Calculates the throat area as
+\begin{equation}
+	At = \frac{F}{\eta_{CF} C_F}\frac{1}{p_c}
+\end{equation}
+and then uses the diameter for the dimesnsionalization. Returns also the mass flows for completeness.
 
+\begin{verbatim}
+Dt2Rocket(Dt, Dinj_Dt, Dp_Dt, Lc_Dt, mdot_ox_Dtsq, mdot_fuel_Dtsq, mdot_Dtsq)
+-> return Dinj, Dp, Lc, mdot_ox, mdot_fuel, mdot
+\end{verbatim}
+\begin{verbatim}
+Dinj2Rocket(Dinj, Dinj_Dt, Dp_Dt, Lc_Dt, mdot_ox_Dtsq, mdot_fuel_Dtsq, mdot_Dtsq)
+-> return Dt, Dp, Lc, mdot_ox, mdot_fuel, mdot
+\end{verbatim}
+\begin{verbatim}
+Dp2Rocket(Dp, Dinj_Dt, Dp_Dt, Lc_Dt, mdot_ox_Dtsq, mdot_fuel_Dtsq, mdot_Dtsq)
+-> return Dt, Dinj, Lc, mdot_ox, mdot_fuel, mdot
+\end{verbatim}
+\hspace{2em} These functions calculate the geometries and mass flows given a geometrical requirement.
 
 
 
