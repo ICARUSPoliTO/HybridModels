@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.27 (MiKTeX 25.4) (preloaded format=pdflatex 2025.11.3)  16 DEC 2025 16:03
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (MiKTeX 25.4) (preloaded format=pdflatex 2025.11.3)  16 DEC 2025 16:07
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1306,25 +1306,19 @@ Package biblatex Info: Automatic encoding selection.
 \openout3 = `main.bcf'.
 
 Package biblatex Info: Trying to load bibliographic data...
-Package biblatex Info: ... file 'main.bbl' found.
- (D:\DesktopMirror\PoliTo\HybridModels\Tecnical_part_report\build\main.bbl)
+Package biblatex Info: ... file 'main.bbl' not found.
+
+No file main.bbl.
 Package biblatex Info: Reference section=0 on input line 57.
 Package biblatex Info: Reference segment=0 on input line 57.
-
 ! Undefined control sequence.
 <argument> \sf@counterlist 
                            
 l.57 \begin{document}
                      
-The control sequence at the end of the top line
-of your error message was never \def'ed. If you have
-misspelled it (e.g., `\hobx'), type `I' and the correct
-spelling (e.g., `I\hbox'). Otherwise just continue,
-and I'll forget about whatever was undefined.
-
+? 
 Package hyperref Info: Link coloring ON on input line 57.
-(D:\DesktopMirror\PoliTo\HybridModels\Tecnical_part_report\build\main.out)
-(D:\DesktopMirror\PoliTo\HybridModels\Tecnical_part_report\build\main.out)
+(main.out) (main.out)
 \@outlinefile=\write5
 \openout5 = `main.out'.
 
@@ -1376,8 +1370,7 @@ been already used, duplicate ignored
 <to be read again> 
                    \relax 
 l.98 \tableofcontents
-                      %genera index [1]
-(D:\DesktopMirror\PoliTo\HybridModels\Tecnical_part_report\build\main.toc)
+                      %genera index [1] (main.toc)
 \tf@toc=\write6
 \openout6 = `main.toc'.
 
@@ -1393,6 +1386,13 @@ Chapter 1.
 
 ] (Tank.tex
 Chapter 2.
+
+LaTeX Warning: Citation 'Selfpress' on page 4 undefined on input line 11.
+
+
+LaTeX Warning: Citation 'doi:10.1021/ie4033999' on page 4 undefined on input li
+ne 11.
+
 
 Underfull \hbox (badness 10000) in paragraph at lines 11--13
 
@@ -1415,10 +1415,6 @@ Overfull \hbox (28.703pt too wide) in paragraph at lines 23--23
  []
 
 
-LaTeX Warning: Reference `Tab: StepSelf-press' on page 4 undefined on input lin
-e 24.
-
-
 Overfull \hbox (11.94597pt too wide) in paragraph at lines 27--43
  [][] 
  []
@@ -1427,15 +1423,7 @@ Overfull \hbox (11.94597pt too wide) in paragraph at lines 27--43
 LaTeX Warning: `!h' float specifier changed to `!ht'.
 
 
-LaTeX Warning: Reference `Tab: CreateSelf-press' on page 4 undefined on input l
-ine 51.
-
-
 LaTeX Warning: `!h' float specifier changed to `!ht'.
-
-
-LaTeX Warning: Reference `Tab: StartSelf-press' on page 4 undefined on input li
-ne 72.
 
 
 Overfull \hbox (11.94597pt too wide) in paragraph at lines 75--89
@@ -1457,29 +1445,12 @@ Underfull \hbox (badness 10000) in paragraph at lines 101--102
  []
 
 
-LaTeX Warning: Reference `Tab: StepPressurised' on page 6 undefined on input li
-ne 108.
-
-
-LaTeX Warning: Reference `Tab: CreatePressurised' on page 6 undefined on input 
-line 139.
-
-
 
 [6]
-
-LaTeX Warning: Reference `Tab: CreateProp' on page 7 undefined on input line 18
-6.
-
-
 Overfull \hbox (10.18253pt too wide) in paragraph at lines 208--208
 []\T1/cmtt/m/n/12 starting_conditions(mL, T, ptank, ppress, Vtank, Vpress, prop
 ellant, pressurant)[] 
  []
-
-
-LaTeX Warning: Reference `Tab: StartingPress' on page 7 undefined on input line
- 209.
 
 
 LaTeX Warning: `!h' float specifier changed to `!ht'.
@@ -1487,10 +1458,6 @@ LaTeX Warning: `!h' float specifier changed to `!ht'.
 
 
 [7]
-
-LaTeX Warning: Reference `Tab: TankDicts' on page 8 undefined on input line 255
-.
-
 
 LaTeX Warning: `!h' float specifier changed to `!ht'.
 
@@ -1507,6 +1474,10 @@ Chapter 3.
 ]
 Chapter 4.
 
+LaTeX Warning: Citation 'MassFlowRate2013' on page 11 undefined on input line 5
+.
+
+
 
 [11
 
@@ -1519,15 +1490,17 @@ Underfull \hbox (badness 10000) in paragraph at lines 72--74
 
 [12]
 Chapter 5.
+
+LaTeX Warning: Citation 'NASACEA' on page 13 undefined on input line 10.
+
+
+LaTeX Warning: Citation 'RocketCEA' on page 13 undefined on input line 11.
+
 ! Undefined control sequence.
 l.13 ...ollowing functions are available in \texit
                                                   {Performance//performance\...
-The control sequence at the end of the top line
-of your error message was never \def'ed. If you have
-misspelled it (e.g., `\hobx'), type `I' and the correct
-spelling (e.g., `I\hbox'). Otherwise just continue,
-and I'll forget about whatever was undefined.
 
+? 
 
 Overfull \hbox (4.00903pt too wide) in paragraph at lines 19--19
 []                          \T1/cmtt/m/n/12 a, n, rho_fuel, oxidizer, fuel, pam
@@ -1548,14 +1521,6 @@ W, gamma, eps_out, cs,[]
 
 [14]
 Chapter 6.
-
-LaTeX Warning: Reference `eq:PressFunction' on page 15 undefined on input line 
-25.
-
-
-LaTeX Warning: Reference `eq:PressFunction' on page 15 undefined on input line 
-33.
-
 
 Overfull \hbox (34.8765pt too wide) in paragraph at lines 43--43
 []\T1/cmtt/m/n/12 full_range_simulation(Dport_Dt_range, Dinj_Dt_range, Lc_Dt_ra
@@ -1583,6 +1548,10 @@ uel_Dtsq, mdot_Dtsq)[]
 [16]
 Chapter 7.
 
+LaTeX Warning: Citation 'harris2020array' on page 17 undefined on input line 13
+.
+
+
 LaTeX Warning: Command \textdegree invalid in math mode on input line 49.
 
 
@@ -1601,39 +1570,25 @@ Missing character: There is no ° in font cmr12!
                 $
 l.106 ... in \textit{Geometry//geometry_update.py}
                                                   .
-I've inserted a begin-math/end-math symbol since I think
-you left one out. Proceed, with fingers crossed.
-
+? 
 ! Extra }, or forgotten $.
 <recently read> \egroup 
                         
 l.106 ... in \textit{Geometry//geometry_update.py}
                                                   .
-I've deleted a group-closing symbol because it seems to be
-spurious, as in `$x}$'. But perhaps the } is legitimate and
-you forgot something else, as in `\hbox{$x}'. In such cases
-the way to recover is to insert both the forgotten and the
-deleted material, e.g., by typing `I$}'.
-
+? 
 ! Missing $ inserted.
 <inserted text> 
                 $
 l.107 \begin{verbatim}
                       
-I've inserted a begin-math/end-math symbol since I think
-you left one out. Proceed, with fingers crossed.
-
+? 
 ! Missing \endgroup inserted.
 <inserted text> 
                 \endgroup 
 l.107 \begin{verbatim}
                       
-I've inserted something that you may have forgotten.
-(See the <inserted text> above.)
-With luck, this will get me unwedged. But if you
-really didn't forget anything, try typing `2' now; then
-my insertion and my current dilemma will both disappear.
-
+? 
 
 ! LaTeX Error: \begin{document} ended by \end{verbatim}.
 
@@ -1643,28 +1598,19 @@ Type  H <return>  for immediate help.
                                                   
 l.110 \end{verbatim}
                     
-Your command was ignored.
-Type  I <command> <return>  to replace it with another command,
-or  <return>  to continue without it.
-
+? 
 ! Missing } inserted.
 <inserted text> 
                 }
 l.110 \end{verbatim}
                     
-I've inserted something that you may have forgotten.
-(See the <inserted text> above.)
-With luck, this will get me unwedged. But if you
-really didn't forget anything, try typing `2' now; then
-my insertion and my current dilemma will both disappear.
-
+? 
 ! Extra \endgroup.
 <recently read> \endgroup 
                           
 l.110 \end{verbatim}
                     
-Things are pretty mixed up, but I think the worst is over.
-
+? 
 
 
 [19]
@@ -1685,10 +1631,7 @@ l-able in \T1/cmr/m/it/12 Mis-sion//chamber_update.py\T1/cmr/m/n/12 .
  []
 
 
-LaTeX Warning: Reference `Eq: MixGas' on page 22 undefined on input line 34.
-
-
-LaTeX Warning: Reference `Eq: MixGas' on page 22 undefined on input line 38.
+LaTeX Warning: Citation 'NASACEA' on page 22 undefined on input line 39.
 
 
 
@@ -1696,24 +1639,12 @@ LaTeX Warning: Reference `Eq: MixGas' on page 22 undefined on input line 38.
 
 ]
 
-LaTeX Warning: Reference `Eq: Adiab' on page 23 undefined on input line 88.
-
-
-
 [23]
-
-LaTeX Warning: Reference `fig:flowchartstep' on page 24 undefined on input line
- 139.
-
-<immagini/burn_flowchart.png, id=303, 1103.12125pt x 1384.17125pt>
+<immagini/burn_flowchart.png, id=329, 1103.12125pt x 1384.17125pt>
 File: immagini/burn_flowchart.png Graphic file (type png)
 <use immagini/burn_flowchart.png>
 Package pdftex.def Info: immagini/burn_flowchart.png  used on input line 142.
 (pdftex.def)             Requested size: 435.32422pt x 546.24533pt.
-
-LaTeX Warning: Reference `Tab: PerfDicts' on page 24 undefined on input line 14
-6.
-
 
 
 [24]
@@ -1741,11 +1672,7 @@ Overfull \hbox (34.8765pt too wide) in paragraph at lines 253--253
 
 
 [27]
-
-LaTeX Warning: Reference `fig:flowchartmatch' on page 28 undefined on input lin
-e 259.
-
-<immagini/missionmatch_flowchart.png, id=325, 760.34062pt x 914.41624pt>
+<immagini/missionmatch_flowchart.png, id=353, 760.34062pt x 914.41624pt>
 File: immagini/missionmatch_flowchart.png Graphic file (type png)
 <use immagini/missionmatch_flowchart.png>
 Package pdftex.def Info: immagini/missionmatch_flowchart.png  used on input lin
@@ -1759,11 +1686,11 @@ e 262.
 Chapter 9.
 ) (ReferencesBibliography.tex)
 
+LaTeX Warning: Empty bibliography on input line 1.
+
+(Appendices.tex)
+
 [30
-
-] (Appendices.tex)
-
-[31
 
 ] (main.aux)
  ***********
@@ -1786,45 +1713,43 @@ Package logreq Info: Writing requests to 'main.run.xml'.
 
  ) 
 Here is how much of TeX's memory you used:
- 34813 strings out of 468080
- 669892 string characters out of 5425772
- 1490426 words of memory out of 5000000
- 62754 multiletter control sequences out of 15000+600000
- 643382 words of font info for 71 fonts, out of 8000000 for 9000
+ 34760 strings out of 468080
+ 667977 string characters out of 5425772
+ 1491651 words of memory out of 5000000
+ 62713 multiletter control sequences out of 15000+600000
+ 642707 words of font info for 70 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 84i,17n,87p,699b,1394s stack positions out of 10000i,1000n,20000p,200000b,200000s
- <C:\Users\crist\AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi600\eccc
-1200.pk> <C:\Users\crist\AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi60
-0\ecrm1000.pk> <C:\Users\crist\AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec
-/dpi600\ecbx1000.pk> <C:\Users\crist\AppData\Local\MiKTeX\fonts/pk/ljfour/jknap
-pen/ec/dpi600\ecbi1200.pk> <C:\Users\crist\AppData\Local\MiKTeX\fonts/pk/ljfour
-/jknappen/ec/dpi600\ecsl1200.pk> <C:\Users\crist\AppData\Local\MiKTeX\fonts/pk/
-ljfour/jknappen/ec/dpi600\ecbx1200.pk> <C:\Users\crist\AppData\Local\MiKTeX\fon
-ts/pk/ljfour/jknappen/ec/dpi600\ectt1200.pk> <C:\Users\crist\AppData\Local\MiKT
-eX\fonts/pk/ljfour/jknappen/ec/dpi600\ecti1200.pk> <C:\Users\crist\AppData\Loca
-l\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi600\ecbx1440.pk> <C:\Users\crist\AppDat
-a\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi600\tcrm1200.pk> <C:\Users\crist\
-AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi600\ecbx2074.pk> <C:\Users\
-crist\AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi600\ecrm1200.pk> <C:\
-Users\crist\AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi600\ecbx1728.pk
-> <C:\Users\crist\AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi600\ecbx2
-488.pk> <C:\Users\crist\AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi600
-\ecrm1728.pk><C:/Users/crist/AppData/Local/Programs/MiKTeX/fonts/type1/public/a
-msfonts/cm/cmex10.pfb><C:/Users/crist/AppData/Local/Programs/MiKTeX/fonts/type1
-/public/amsfonts/cm/cmmi12.pfb><C:/Users/crist/AppData/Local/Programs/MiKTeX/fo
-nts/type1/public/amsfonts/cm/cmmi6.pfb><C:/Users/crist/AppData/Local/Programs/M
-iKTeX/fonts/type1/public/amsfonts/cm/cmmi8.pfb><C:/Users/crist/AppData/Local/Pr
-ograms/MiKTeX/fonts/type1/public/amsfonts/cm/cmr12.pfb><C:/Users/crist/AppData/
-Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmr6.pfb><C:/Users/crist/A
-ppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmr8.pfb><C:/Users/
-crist/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy10.pfb><
-C:/Users/crist/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cms
-y6.pfb><C:/Users/crist/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfont
-s/cm/cmsy8.pfb>
-Output written on D:\DesktopMirror\PoliTo\HybridModels\Tecnical_part_report\bui
-ld\main.pdf (32 pages, 712556 bytes).
+ 84i,17n,87p,699b,1845s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ <C:\Users\crist\AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi600\ecrm
+1000.pk> <C:\Users\crist\AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi60
+0\ecbx1000.pk> <C:\Users\crist\AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec
+/dpi600\ecbi1200.pk> <C:\Users\crist\AppData\Local\MiKTeX\fonts/pk/ljfour/jknap
+pen/ec/dpi600\ecsl1200.pk> <C:\Users\crist\AppData\Local\MiKTeX\fonts/pk/ljfour
+/jknappen/ec/dpi600\ectt1200.pk> <C:\Users\crist\AppData\Local\MiKTeX\fonts/pk/
+ljfour/jknappen/ec/dpi600\ecti1200.pk> <C:\Users\crist\AppData\Local\MiKTeX\fon
+ts/pk/ljfour/jknappen/ec/dpi600\ecbx1440.pk> <C:\Users\crist\AppData\Local\MiKT
+eX\fonts/pk/ljfour/jknappen/ec/dpi600\tcrm1200.pk> <C:\Users\crist\AppData\Loca
+l\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi600\ecbx1200.pk> <C:\Users\crist\AppDat
+a\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi600\ecbx2074.pk> <C:\Users\crist\
+AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi600\ecrm1200.pk> <C:\Users\
+crist\AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi600\ecbx1728.pk> <C:\
+Users\crist\AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi600\ecbx2488.pk
+> <C:\Users\crist\AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi600\ecrm1
+728.pk><C:/Users/crist/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfont
+s/cm/cmex10.pfb><C:/Users/crist/AppData/Local/Programs/MiKTeX/fonts/type1/publi
+c/amsfonts/cm/cmmi12.pfb><C:/Users/crist/AppData/Local/Programs/MiKTeX/fonts/ty
+pe1/public/amsfonts/cm/cmmi6.pfb><C:/Users/crist/AppData/Local/Programs/MiKTeX/
+fonts/type1/public/amsfonts/cm/cmmi8.pfb><C:/Users/crist/AppData/Local/Programs
+/MiKTeX/fonts/type1/public/amsfonts/cm/cmr12.pfb><C:/Users/crist/AppData/Local/
+Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmr6.pfb><C:/Users/crist/AppData
+/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmr8.pfb><C:/Users/crist/
+AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy10.pfb><C:/Use
+rs/crist/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy6.pfb
+><C:/Users/crist/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/c
+msy8.pfb>
+Output written on main.pdf (31 pages, 712402 bytes).
 PDF statistics:
- 934 PDF objects out of 1000 (max. 8388607)
- 125 named destinations out of 1000 (max. 500000)
+ 939 PDF objects out of 1000 (max. 8388607)
+ 117 named destinations out of 1000 (max. 500000)
  233 words of extra memory for PDF output out of 10000 (max. 10000000)
 

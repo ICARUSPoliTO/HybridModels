@@ -1,3 +1,80 @@
 \newpage
 \chapter{Injection}
 The purpose of the following models is to describe accurately the mass flow injection in different conditions.
+As for the tank, the type of fluid influences the model to be used: to match the characteristics of a self-pressurising fluid
+the Non-Homogeneus Non-Equilibrium (NHNE) model \cite{MassFlowRate2013} was used.
+It basically condiders a weighted average of the Homogeneus Equilibrium Model,
+with no slip and multi-phase fluid
+\begin{equation}
+	\dot{m}_{HEM}=A\rho \sqrt{2(h_1-h_2)}
+\end{equation}
+and the Single Phase Injection
+\begin{equation}
+	\dot{m}_{SPI}=A \sqrt{2\rho (p_1-p_2)}
+\end{equation}
+The weight takes into account the pressure drop and the drop respect to the vapor pressure
+\begin{equation}
+	\chi=\sqrt{\frac{p_1-p_2}{p_V-p_2}}
+\end{equation}
+and finally the mass flow can be calculated as
+\begin{equation}
+	\dot{m}_{NHNE}=\frac{\chi}{\chi+1}\dot{m}_{SPI}+\frac{1}{\chi+1}\dot{m}_{HEM}
+\end{equation}
+This model clearly applies to liquid or multi-phase flow, instead with an ideal gas we write
+\begin{equation}
+	\dot{m}_{gas}= \frac{p_1A}{\sqrt{RT_1}}f(\frac{p_2}{p_1})
+\end{equation}
+with
+\begin{equation*}
+	f(\frac{p_2}{p_1})=\sqrt{\frac{2\gamma}{\gamma -1}((\frac{p_2}{p_1})^\frac{2}{\gamma}-(\frac{p_2}{p_1})^\frac{\gamma +1}{\gamma})}
+\end{equation*}
+remembering that a chocked exit section is reached when
+\begin{equation}
+	\frac{p_2}{p_1} \leq (\frac{p_e}{p_1})_{crit}=(\frac{2}{\gamma +1})^\frac{\gamma}{\gamma -1}
+\end{equation}
+and in that case we write
+\begin{equation}
+	\dot{m}_{gas}= \frac{p_1A}{\sqrt{RT_1}}\Gamma
+\end{equation}
+with
+\begin{equation*}
+	\Gamma=\sqrt{\gamma (\frac{2}{\gamma +1})^\frac{\gamma +1}{\gamma -1}}
+\end{equation*}
+\section{Functions}
+The following functions are in \textit{Injection//PyInjection.py}.
+\begin{verbatim}
+NHNE_injection(p1, p2, T, cD, fluid)
+-> return mdot
+\end{verbatim}
+\hspace{2em} Calculates mass flux [kg/sm$^2$] using NHNE model.
+Returns $0$ if $p_1<p_2$.
+ \begin{verbatim}
+gas_injection(p1, p2, T, CD, fluid)
+-> return mdot
+\end{verbatim}
+\hspace{2em} Calculates mass flux [kg/sm$^2$] for an ideal gas using CoolProp properties.
+Returns $0$ if $p_1<p_2$.
+\begin{verbatim}
+gas_injection_custom(p1, p2, T, CD, gamma, M, eps=1.0)
+-> return mdot
+\end{verbatim}
+\hspace{2em} Calculates mass flux [kg/sm$^2$] for an ideal gas.
+It is meant to be used for nozzle outflow, using burned gas properties, 
+so it takes in input also the expansion ratio,modifying the chocked condition to
+\begin{equation}
+	f(\frac{p_2}{p_1}) \geq \frac{\Gamma}{\varepsilon}
+\end{equation}
+Returns $0$ if $p_1<p_2$.
+\begin{verbatim}
+massflow(p1, p2, T, CD, fluid)
+-> return mdot
+\end{verbatim}
+\hspace{2em} Chooses the model to use with a \textit{try/except} structure, because the calculation of vapor pressure using CoolProp will
+fail if it is super-critical.\\
+
+All the previous functions take into account the effects of the discharge coefficient.
+
+
+
+
+

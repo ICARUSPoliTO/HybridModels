@@ -74,6 +74,44 @@
       \verb http://pubs.acs.org/doi/abs/10.1021/ie4033999
       \endverb
     \endentry
+    \entry{MassFlowRate2013}{article}{}{}
+      \name{author}{2}{}{%
+        {{hash=6fc4c663f3c049e7a6f8ac3525061a0f}{%
+           family={Benjamin\bibnamedelimb S.\bibnamedelimi Waxman},
+           familyi={B\bibinitperiod\bibinitdelim S\bibinitperiod\bibinitdelim W\bibinitperiod},
+           given={Brian\bibnamedelimb J.\bibnamedelimi Cantwell},
+           giveni={B\bibinitperiod\bibinitdelim J\bibinitperiod\bibinitdelim C\bibinitperiod},
+           suffix={Jonah\bibnamedelimb E.\bibnamedelimi Zimmerman},
+           suffixi={J\bibinitperiod\bibinitdelim E\bibinitperiod\bibinitdelim Z\bibinitperiod}}}%
+        {{hash=3db1f2deabe415c8c45cb1def919356d}{%
+           family={Zilliac},
+           familyi={Z\bibinitperiod},
+           given={Gregory\bibnamedelima G.},
+           giveni={G\bibinitperiod\bibinitdelim G\bibinitperiod}}}%
+      }
+      \strng{namehash}{60f20fc92a4886296e8bab09ab743b53}
+      \strng{fullhash}{60f20fc92a4886296e8bab09ab743b53}
+      \strng{fullhashraw}{60f20fc92a4886296e8bab09ab743b53}
+      \strng{bibnamehash}{60f20fc92a4886296e8bab09ab743b53}
+      \strng{authorbibnamehash}{60f20fc92a4886296e8bab09ab743b53}
+      \strng{authornamehash}{60f20fc92a4886296e8bab09ab743b53}
+      \strng{authorfullhash}{60f20fc92a4886296e8bab09ab743b53}
+      \strng{authorfullhashraw}{60f20fc92a4886296e8bab09ab743b53}
+      \field{sortinit}{B}
+      \field{sortinithash}{d7095fff47cda75ca2589920aae98399}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{AIAA/ASME/SAE/ASEE Joint Propulsion Conference (JPC 2013)}
+      \field{number}{3}
+      \field{title}{Mass Flow Rate and Isolation Characteristics of Injectors for Use with Self-Pressurizing Oxidizers in Hybrid Rockets}
+      \field{volume}{AIAA 2006-4504}
+      \field{year}{July 14, 2013}
+      \field{pages}{16}
+      \range{pages}{1}
+      \verb{doi}
+      \verb 20190001326
+      \endverb
+    \endentry
     \entry{harris2020array}{article}{}{}
       \name{author}{26}{}{%
         {{hash=db2b4761cc46be347b418e68660c9554}{%
@@ -295,6 +333,28 @@
       \verb{doi}
       \verb 10.2514/1.47131
       \endverb
+    \endentry
+    \entry{RocketCEA}{article}{}{}
+      \name{author}{1}{}{%
+        {{hash=71e786ede4f8564939ef298357cab2b9}{%
+           family={Taylor},
+           familyi={T\bibinitperiod},
+           given={Charlie},
+           giveni={C\bibinitperiod}}}%
+      }
+      \strng{namehash}{71e786ede4f8564939ef298357cab2b9}
+      \strng{fullhash}{71e786ede4f8564939ef298357cab2b9}
+      \strng{fullhashraw}{71e786ede4f8564939ef298357cab2b9}
+      \strng{bibnamehash}{71e786ede4f8564939ef298357cab2b9}
+      \strng{authorbibnamehash}{71e786ede4f8564939ef298357cab2b9}
+      \strng{authornamehash}{71e786ede4f8564939ef298357cab2b9}
+      \strng{authorfullhash}{71e786ede4f8564939ef298357cab2b9}
+      \strng{authorfullhashraw}{71e786ede4f8564939ef298357cab2b9}
+      \field{sortinit}{T}
+      \field{sortinithash}{9af77f0292593c26bde9a56e688eaee9}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{RocketCEA Python library}
     \endentry
   \enddatalist
 \endrefsection
