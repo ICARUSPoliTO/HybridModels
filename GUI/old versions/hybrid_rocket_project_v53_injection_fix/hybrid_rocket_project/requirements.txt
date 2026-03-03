@@ -1,0 +1,15 @@
+# Hybrid Rocket Simulator Dependencies
+# Install with: pip install -r requirements.txt
+
+# GUI
+# tkinter is included with Python
+
+# Numerical computation
+numpy>=1.20.0
+matplotlib>=3.5.0
+
+# Thermodynamic properties
+CoolProp>=6.4.0
+
+# NASA CEA interface
+rocketcea>=1.1.0

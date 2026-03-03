@@ -1164,41 +1164,531 @@ if __name__ == "__main__":
     plt.legend()
     plt.show()
 
-    ed_instance = np.array([[0.17, -0.02],[0.5, -0.02],[0.5, 0.02],[0.17, 0.02]])
+    # ============= SVP INDUSTRIES 5 POINTS - Stella a 5 punte =============
+    # Parametri stella
+    D_int_base = 6.62e-3  # [m] = 6.62 mm
+    D_ext = 20.0e-3  # [m] = 20.0 mm
 
-    """
-    ed_points = np.array([[0.0237, 0.1683], [0.128, 0.911], [-0.128, 0.911], [-0.0237, 0.1683],
-                          [-0.1528, 0.0745], [-0.8269, 0.4033], [-0.906, 0.1598], [-0.1674, 0.0295],
-                          [-0.1181, -0.1223], [-0.6391, -0.6618], [-0.4319, -0.8123], [-0.0798, -0.1501],
-                          [0.0798, -0.1501], [0.4319, -0.8123], [0.6391, -0.6618], [0.1181, -0.1223],
-                          [0.1674, 0.0295], [0.906, 0.1598], [0.8269, 0.4033], [0.1528, 0.0745]])
-    """
-    ed_points_x, ed_points_y = create_repeated_instance(ed_instance[:,0], ed_instance[:,1], 5)
-    ed_centered_x, ed_centered_y = translate_figure(ed_points_x, ed_points_y)
-    #ed_centered_x, ed_centered_y = 0.2, 0
+    r_interno = D_int_base / 2  # 3.31 mm
+    r_esterno = D_ext / 2  # 10.0 mm
 
-    ed_filled_x, ed_filled_y = fill_borders_circumference(ed_centered_x, ed_centered_y, 10)
+    # Raggio punta arrotondata (95% del raggio esterno per punte meno appuntite)
+    r_punta = 0.95 * r_esterno  # 9.5 mm invece di 10.0 mm
 
-    plt.figure()
-    plt.plot(ed_centered_x, ed_centered_y, 'bo-', label='ed original')
+    n_points_side = 20  # Più punti per curve più morbide
 
-    plt.figure()
-    plt.plot(ed_filled_x, ed_filled_y, 'b', label='ed original')
+    # ===== LATO SUPERIORE (da insenatura sinistra a punta) =====
+    upper_angles = np.linspace(np.deg2rad(-18), np.deg2rad(0), n_points_side)
 
-    ed_burned_x, ed_burned_y, ed_xM, ed_yM = burn_surface_circular(ed_centered_x, ed_centered_y, 1, 0.05, 1)
-    plt.plot(ed_xM, ed_yM, 'ko')
+    # Transizione CURVA con funzione cubica per lati più arrotondati
+    t_upper = np.linspace(0, 1, n_points_side)
+    # Funzione cubica per transizione molto morbida e curva
+    upper_radii = r_interno + (r_punta - r_interno) * (t_upper ** 2) * (3 - 2 * t_upper)
 
-    ed_refilled_x, ed_refilled_y = fill_borders_circumference(ed_burned_x, ed_burned_y, 100)
+    upper_points = []
+    for angle, radius in zip(upper_angles, upper_radii):
+        upper_points.append([radius * np.cos(angle), radius * np.sin(angle)])
 
-    for times in range(500):
-        ed_burned_x, ed_burned_y, ed_xM, ed_yM = burn_surface_circular(ed_burned_x, ed_burned_y, 1, 0.005, 1)
+    # ===== LATO INFERIORE (da punta a insenatura destra) =====
+    lower_angles = np.linspace(np.deg2rad(0), np.deg2rad(18), n_points_side)
 
-        ed_refilled_x, ed_refilled_y = fill_borders_circumference(ed_burned_x, ed_burned_y, 100)
-        if times % 20 == 0:
-            plt.plot(ed_refilled_x, ed_refilled_y, 'y')
+    # Transizione CURVA con funzione cubica
+    t_lower = np.linspace(0, 1, n_points_side)
+    lower_radii = r_punta + (r_interno - r_punta) * (t_lower ** 2) * (3 - 2 * t_lower)
 
-    plt.plot(ed_refilled_x, ed_refilled_y, 'r')
+    lower_points = []
+    for angle, radius in zip(lower_angles, lower_radii):
+        lower_points.append([radius * np.cos(angle), radius * np.sin(angle)])
 
+    # Combino i due lati
+    svp_instance = np.array(upper_points + lower_points[1:])
 
-    plt.legend()
+    print(f"SVP INDUSTRIES 5 POINTS - {svp_instance.shape[0]} punti per sezione:")
+    print("=" * 70)
+    print(f"  Raggio interno (insenature): {r_interno * 1000:.2f} mm")
+    print(f"  Raggio punta (arrotondata): {r_punta * 1000:.2f} mm")
+    print(f"  Funzione transizione: cubica smoothstep per curve morbide")
+    print("=" * 70)
+
+    # Replica 5 volte per creare la stella completa
+    svp_points_x, svp_points_y = create_repeated_instance(svp_instance[:, 0], svp_instance[:, 1], 5)
+    svp_centered_x, svp_centered_y = translate_figure(svp_points_x, svp_points_y)
+
+    print(f"\nPunti totali dopo replicazione x5: {len(svp_points_x)} punti")
+
+    # Fill con archi circolari
+    svp_filled_x, svp_filled_y = fill_borders_circumference(svp_centered_x, svp_centered_y, 40, tol=1e-5)
+
+    print(f"Punti dopo fill_borders_circumference: {len(svp_filled_x)} punti")
+
+    # ============= BURNING PROGRESSIVO VERSO ESTERNO (FINO AL CASING) =============
+    plt.figure(figsize=(14, 14))
+
+    # Cerchio casing
+    theta_casing = np.linspace(0, 2 * np.pi, 200)
+    plt.plot(15.0 * np.cos(theta_casing), 15.0 * np.sin(theta_casing),
+             'k-', linewidth=3.5, label='Casing D=30mm', zorder=10)
+
+    # Stella iniziale
+    plt.plot(svp_filled_x * 1000, svp_filled_y * 1000, 'b', linewidth=4,
+             label='Stella iniziale', zorder=9)
+
+    # Parametri burning - AUMENTATO per raggiungere il casing
+    # Distanza: dalla stella (r~9.5mm) al casing (r=15mm) = ~5.5mm
+    # Con 8 iterazioni: 5.5/8 = 0.69mm per step
+    regression_rate_tocasing = 0.00069  # m/s (0.69 mm/s)
+    dt = 1.0  # s
+    n_iterations = 8  # 8 iterazioni
+
+    print(f"\n{'=' * 70}")
+    print(f"SVP INDUSTRIES 5 POINTS - PARAMETRI BURNING VERSO ESTERNO:")
+    print(f"  Regression rate: {regression_rate_tocasing * 1000:.2f} mm/s")
+    print(f"  Time step: {dt:.1f} s")
+    print(f"  Numero iterazioni: {n_iterations}")
+    print(f"  Passo tra linee: {regression_rate_tocasing * dt * 1000:.2f} mm")
+    print(f"  Distanza totale coperta: {regression_rate_tocasing * dt * n_iterations * 1000:.2f} mm")
+    print(f"  (dovrebbe raggiungere il casing a r=15mm)")
+    print(f"{'=' * 70}\n")
+
+    # Burning progressivo VERSO ESTERNO (z=+1)
+    svp_burned_x, svp_burned_y, svp_xM, svp_yM = burn_surface_circular(
+        svp_centered_x, svp_centered_y, 1, regression_rate_tocasing, dt)  # z=1 per ESTERNO
+
+    svp_refilled_x, svp_refilled_y = fill_borders_circumference(svp_burned_x, svp_burned_y, 40, tol=1e-5)
+
+    colors = plt.cm.rainbow(np.linspace(0, 1, n_iterations))
+
+    # Mostro TUTTE le 8 linee intermedie (SENZA la linea rossa finale)
+    for times in range(n_iterations):
+        svp_burned_x, svp_burned_y, svp_xM, svp_yM = burn_surface_circular(
+            svp_burned_x, svp_burned_y, 1, regression_rate_tocasing, dt)  # z=1 per ESTERNO
+
+        if len(svp_burned_x) < 3:
+            print(f"Geometria collassata all'iterazione {times}")
+            break
+
+        svp_refilled_x, svp_refilled_y = fill_borders_circumference(svp_burned_x, svp_burned_y, 40, tol=1e-5)
+
+        # Plotto OGNI iterazione
+        plt.plot(svp_refilled_x * 1000, svp_refilled_y * 1000,
+                 color=colors[times], alpha=0.8, linewidth=2.2, zorder=8 - times * 0.1)
+
+    # NON plotto la linea rossa finale (rimosso plt.plot con 'r')
+
+    plt.axis('equal')
+    plt.grid(True, alpha=0.3, linestyle=':', linewidth=0.8)
+    plt.legend(fontsize=14, loc='upper right', framealpha=0.98, edgecolor='black', fancybox=True)
+    plt.title('SVP Industries 5 Points - Burning Progression\n' +
+              f'Espansione verso casing | Passo={regression_rate_tocasing * dt * 1000:.2f}mm | {n_iterations} iterazioni',
+              fontsize=16, weight='bold', pad=20)
+    plt.xlabel('Posizione X (mm)', fontsize=14, weight='bold')
+    plt.ylabel('Posizione Y (mm)', fontsize=14, weight='bold')
+    plt.xlim(-17, 17)
+    plt.ylim(-17, 17)
+    plt.tight_layout()
     plt.show()
+
+    print(f"\n✓ SVP Industries 5 Points - Visualizzazione completata!")
+    print(f"  Linee totali mostrate: {n_iterations + 1} linee")
+    print(f"  (1 blu iniziale + {n_iterations} colorate intermedie)")
+    print(f"  Espansione verso il casing fino a r≈15mm!")
+
+    # ============= SVP INDUSTRIES 5 POINTS - Stella a 5 punte =============
+    # Parametri stella
+    D_int_base = 6.62e-3  # [m] = 6.62 mm
+    D_ext = 20.0e-3  # [m] = 20.0 mm
+
+    r_interno = D_int_base / 2  # 3.31 mm
+    r_esterno = D_ext / 2  # 10.0 mm
+
+    # Raggio punta arrotondata (95% del raggio esterno per punte meno appuntite)
+    r_punta = 0.95 * r_esterno  # 9.5 mm invece di 10.0 mm
+
+    n_points_side = 20  # Più punti per curve più morbide
+
+    # ===== LATO SUPERIORE (da insenatura sinistra a punta) =====
+    upper_angles = np.linspace(np.deg2rad(-18), np.deg2rad(0), n_points_side)
+
+    # Transizione CURVA con funzione cubica per lati più arrotondati
+    t_upper = np.linspace(0, 1, n_points_side)
+    # Funzione cubica per transizione molto morbida e curva
+    upper_radii = r_interno + (r_punta - r_interno) * (t_upper ** 2) * (3 - 2 * t_upper)
+
+    upper_points = []
+    for angle, radius in zip(upper_angles, upper_radii):
+        upper_points.append([radius * np.cos(angle), radius * np.sin(angle)])
+
+    # ===== LATO INFERIORE (da punta a insenatura destra) =====
+    lower_angles = np.linspace(np.deg2rad(0), np.deg2rad(18), n_points_side)
+
+    # Transizione CURVA con funzione cubica
+    t_lower = np.linspace(0, 1, n_points_side)
+    lower_radii = r_punta + (r_interno - r_punta) * (t_lower ** 2) * (3 - 2 * t_lower)
+
+    lower_points = []
+    for angle, radius in zip(lower_angles, lower_radii):
+        lower_points.append([radius * np.cos(angle), radius * np.sin(angle)])
+
+    # Combino i due lati
+    svp_instance = np.array(upper_points + lower_points[1:])
+
+    print(f"SVP INDUSTRIES 5 POINTS - {svp_instance.shape[0]} punti per sezione:")
+    print("=" * 70)
+    print(f"  Raggio interno (insenature): {r_interno * 1000:.2f} mm")
+    print(f"  Raggio punta (arrotondata): {r_punta * 1000:.2f} mm")
+    print("=" * 70)
+
+    # Replica 5 volte per creare la stella completa
+    svp_points_x, svp_points_y = create_repeated_instance(svp_instance[:, 0], svp_instance[:, 1], 5)
+    svp_centered_x, svp_centered_y = translate_figure(svp_points_x, svp_points_y)
+
+    print(f"\nPunti totali dopo replicazione x5: {len(svp_points_x)} punti")
+
+    # Fill con archi circolari
+    svp_filled_x, svp_filled_y = fill_borders_circumference(svp_centered_x, svp_centered_y, 40, tol=1e-5)
+
+    print(f"Punti dopo fill_borders_circumference: {len(svp_filled_x)} punti")
+
+    # ============= ESPANSIONE VERSO ESTERNO (SCALING GEOMETRICO) =============
+    plt.figure(figsize=(14, 14))
+
+    # Cerchio casing
+    theta_casing = np.linspace(0, 2 * np.pi, 200)
+    plt.plot(15.0 * np.cos(theta_casing), 15.0 * np.sin(theta_casing),
+             'k-', linewidth=3.5, label='Casing D=30mm', zorder=10)
+
+    # Stella iniziale
+    plt.plot(svp_filled_x * 1000, svp_filled_y * 1000, 'b', linewidth=4,
+             label='Stella iniziale', zorder=9)
+
+    # Parametri per espansione geometrica
+    n_iterations = 8  # 8 linee intermedie
+    r_casing = 15.0e-3  # raggio casing in metri
+
+    # Calcolo raggio massimo della stella iniziale
+    r_max_stella = np.max(np.hypot(svp_filled_x, svp_filled_y))
+
+    # Fattori di scala da stella a quasi-casing
+    scale_factors = np.linspace(1.0, r_casing / r_max_stella * 0.95, n_iterations + 1)[1:]
+
+    print(f"\n{'=' * 70}")
+    print(f"SVP INDUSTRIES 5 POINTS - ESPANSIONE GEOMETRICA:")
+    print(f"  Raggio max stella: {r_max_stella * 1000:.2f} mm")
+    print(f"  Raggio casing: {r_casing * 1000:.2f} mm")
+    print(f"  Numero iterazioni: {n_iterations}")
+    print(f"  Scale factors: da 1.0 a {scale_factors[-1]:.3f}")
+    print(f"{'=' * 70}\n")
+
+    colors = plt.cm.rainbow(np.linspace(0, 1, n_iterations))
+
+    # Espando la geometria con scaling uniforme (invece di burn_surface)
+    for i, scale in enumerate(scale_factors):
+        # Scala uniformemente tutti i punti rispetto all'origine
+        scaled_x = svp_filled_x * scale
+        scaled_y = svp_filled_y * scale
+
+        # Plot della geometria scalata
+        plt.plot(scaled_x * 1000, scaled_y * 1000,
+                 color=colors[i], alpha=0.8, linewidth=2.2, zorder=8 - i * 0.1)
+
+        print(f"  Iterazione {i + 1}: scale={scale:.3f}, r_max={np.max(np.hypot(scaled_x, scaled_y)) * 1000:.2f}mm")
+
+    plt.axis('equal')
+    plt.grid(True, alpha=0.3, linestyle=':', linewidth=0.8)
+    plt.legend(fontsize=14, loc='upper right', framealpha=0.98, edgecolor='black', fancybox=True)
+    plt.title('SVP Industries 5 Points - Burning Progression\n' +
+              f'Espansione geometrica uniforme | {n_iterations} iterazioni',
+              fontsize=16, weight='bold', pad=20)
+    plt.xlabel('Posizione X (mm)', fontsize=14, weight='bold')
+    plt.ylabel('Posizione Y (mm)', fontsize=14, weight='bold')
+    plt.xlim(-17, 17)
+    plt.ylim(-17, 17)
+    plt.tight_layout()
+    plt.show()
+
+    print(f"\n✓ SVP Industries 5 Points - Visualizzazione completata!")
+    print(f"  Linee totali mostrate: {n_iterations + 1} linee")
+    print(f"  (1 blu iniziale + {n_iterations} colorate con scaling uniforme)")
+
+    # ============= SVP INDUSTRIES 5 POINTS - Stella a 5 punte =============
+    # Parametri stella
+    D_int_base = 6.62e-3  # [m] = 6.62 mm
+    D_ext = 20.0e-3  # [m] = 20.0 mm
+
+    r_interno = D_int_base / 2  # 3.31 mm
+    r_esterno = D_ext / 2  # 10.0 mm
+
+    # Raggio punta arrotondata (95% del raggio esterno per punte meno appuntite)
+    r_punta = 0.95 * r_esterno  # 9.5 mm invece di 10.0 mm
+
+    n_points_side = 20  # Più punti per curve più morbide
+
+    # ===== LATO SUPERIORE (da insenatura sinistra a punta) =====
+    upper_angles = np.linspace(np.deg2rad(-18), np.deg2rad(0), n_points_side)
+
+    # Transizione CURVA con funzione cubica per lati più arrotondati
+    t_upper = np.linspace(0, 1, n_points_side)
+    # Funzione cubica per transizione molto morbida e curva
+    upper_radii = r_interno + (r_punta - r_interno) * (t_upper ** 2) * (3 - 2 * t_upper)
+
+    upper_points = []
+    for angle, radius in zip(upper_angles, upper_radii):
+        upper_points.append([radius * np.cos(angle), radius * np.sin(angle)])
+
+    # ===== LATO INFERIORE (da punta a insenatura destra) =====
+    lower_angles = np.linspace(np.deg2rad(0), np.deg2rad(18), n_points_side)
+
+    # Transizione CURVA con funzione cubica
+    t_lower = np.linspace(0, 1, n_points_side)
+    lower_radii = r_punta + (r_interno - r_punta) * (t_lower ** 2) * (3 - 2 * t_lower)
+
+    lower_points = []
+    for angle, radius in zip(lower_angles, lower_radii):
+        lower_points.append([radius * np.cos(angle), radius * np.sin(angle)])
+
+    # Combino i due lati
+    svp_instance = np.array(upper_points + lower_points[1:])
+
+    print(f"SVP INDUSTRIES 5 POINTS - {svp_instance.shape[0]} punti per sezione:")
+    print("=" * 70)
+    print(f"  Raggio interno (insenature): {r_interno * 1000:.2f} mm")
+    print(f"  Raggio punta (arrotondata): {r_punta * 1000:.2f} mm")
+    print("=" * 70)
+
+    # Replica 5 volte per creare la stella completa
+    svp_points_x, svp_points_y = create_repeated_instance(svp_instance[:, 0], svp_instance[:, 1], 5)
+    svp_centered_x, svp_centered_y = translate_figure(svp_points_x, svp_points_y)
+
+    print(f"\nPunti totali dopo replicazione x5: {len(svp_points_x)} punti")
+
+    # Fill con archi circolari
+    svp_filled_x, svp_filled_y = fill_borders_circumference(svp_centered_x, svp_centered_y, 40, tol=1e-5)
+
+    print(f"Punti dopo fill_borders_circumference: {len(svp_filled_x)} punti")
+
+    # ============= ESPANSIONE RADIALE VERSO CASING (TUTTE LE PARTI ARRIVANO INSIEME) =============
+    plt.figure(figsize=(14, 14))
+
+    # Cerchio casing
+    theta_casing = np.linspace(0, 2 * np.pi, 200)
+    plt.plot(15.0 * np.cos(theta_casing), 15.0 * np.sin(theta_casing),
+             'k-', linewidth=3.5, label='Casing D=30mm', zorder=10)
+
+    # Stella iniziale
+    plt.plot(svp_filled_x * 1000, svp_filled_y * 1000, 'b', linewidth=4,
+             label='Stella iniziale', zorder=9)
+
+    # Parametri per espansione radiale
+    n_iterations = 8  # 8 linee intermedie
+    r_casing = 15.0e-3  # raggio casing in metri
+
+    # Calcolo raggi di ogni punto della stella
+    r_points = np.hypot(svp_filled_x, svp_filled_y)
+    theta_points = np.arctan2(svp_filled_y, svp_filled_x)
+
+    # Progress factors da 0 a 0.95 (95% verso il casing)
+    progress_values = np.linspace(0, 0.95, n_iterations + 1)[1:]
+
+    print(f"\n{'=' * 70}")
+    print(f"SVP INDUSTRIES 5 POINTS - ESPANSIONE RADIALE UNIFORME AL CASING:")
+    print(f"  Raggio casing: {r_casing * 1000:.2f} mm")
+    print(f"  Numero iterazioni: {n_iterations}")
+    print(f"  Tutte le parti arrivano al casing contemporaneamente")
+    print(f"{'=' * 70}\n")
+
+    colors = plt.cm.rainbow(np.linspace(0, 1, n_iterations))
+
+    # Espansione radiale: ogni punto si muove verso r_casing in modo proporzionale
+    for i, progress in enumerate(progress_values):
+        # Interpolazione lineare: r_new = r_old + (r_casing - r_old) * progress
+        # Questo fa sì che ogni punto si muova verso il casing proporzionalmente
+        # Le parti interne (r piccolo) si muovono DI PIÙ
+        # Le parti esterne (r grande) si muovono DI MENO
+        # Tutte arrivano insieme a r_casing quando progress=1.0
+
+        r_new = r_points + (r_casing - r_points) * progress
+
+        # Converti in coordinate cartesiane
+        expanded_x = r_new * np.cos(theta_points)
+        expanded_y = r_new * np.sin(theta_points)
+
+        # Plot della geometria espansa
+        plt.plot(expanded_x * 1000, expanded_y * 1000,
+                 color=colors[i], alpha=0.8, linewidth=2.2, zorder=8 - i * 0.1)
+
+        r_min_new = np.min(r_new) * 1000
+        r_max_new = np.max(r_new) * 1000
+        print(
+            f"  Iter {i + 1}: progress={progress:.3f}, r_min={r_min_new:.2f}mm, r_max={r_max_new:.2f}mm, diff={r_max_new - r_min_new:.2f}mm")
+
+    plt.axis('equal')
+    plt.grid(True, alpha=0.3, linestyle=':', linewidth=0.8)
+    plt.legend(fontsize=14, loc='upper right', framealpha=0.98, edgecolor='black', fancybox=True)
+    plt.title('SVP Industries 5 Points - Burning Progression\n' +
+              f'Espansione radiale uniforme verso casing | {n_iterations} iterazioni',
+              fontsize=16, weight='bold', pad=20)
+    plt.xlabel('Posizione X (mm)', fontsize=14, weight='bold')
+    plt.ylabel('Posizione Y (mm)', fontsize=14, weight='bold')
+    plt.xlim(-17, 17)
+    plt.ylim(-17, 17)
+    plt.tight_layout()
+    plt.show()
+
+    print(f"\n✓ SVP Industries 5 Points - Visualizzazione completata!")
+    print(f"  Linee totali mostrate: {n_iterations + 1} linee")
+    print(f"  (1 blu iniziale + {n_iterations} colorate)")
+    print(f"  Tutte le parti della stella arrivano al casing insieme!")
+
+# ============= SVP INDUSTRIES WAGON WHEEL - 10 lobi con forma corretta =============
+# Parametri wagon wheel
+D_int_base = 6.62e-3  # [m] = 6.62 mm (raggio nelle valli)
+D_ext = 20.0e-3  # [m] = 20.0 mm (raggio massimo lobi)
+D_casing = 26.5e-3  # [m] = 26.5 mm
+
+r_interno = D_int_base / 2  # 3.31 mm
+r_esterno = D_ext / 2  # 10.0 mm
+r_casing = D_casing / 2  # 13.25 mm
+
+# Numero di lobi
+n_lobi = 10
+
+print(f"SVP INDUSTRIES WAGON WHEEL - {n_lobi} lobi:")
+print("=" * 70)
+print(f"  Raggio interno (valli): {r_interno * 1000:.2f} mm")
+print(f"  Raggio esterno (lobi): {r_esterno * 1000:.2f} mm")
+print(f"  Raggio casing: {r_casing * 1000:.2f} mm")
+print("=" * 70)
+
+# Creo UN LOBO e lo replico
+# Ogni lobo è definito da angoli che vanno da -angolo_lobo/2 a +angolo_lobo/2
+angolo_per_lobo = 2 * np.pi / n_lobi  # 36° per lobo
+frazione_valle = 0.3  # 30% dell'angolo è valle (r_interno)
+frazione_transizione = 0.35  # 35% dell'angolo è transizione
+frazione_lobo = 0.35  # 35% dell'angolo è lobo pieno (r_esterno)
+
+# Definisco angoli per UNA sezione (un lobo)
+n_points_per_lobo = 50
+theta_lobo = np.linspace(-angolo_per_lobo / 2, angolo_per_lobo / 2, n_points_per_lobo)
+
+# Funzione raggio per UN lobo
+# - Parte centrale: valle a r_interno
+# - Transizione: crescita morbida
+# - Parte esterna: lobo a r_esterno
+# - Transizione: decrescita morbida
+# - Ritorno a valle
+
+radii_lobo = np.zeros(n_points_per_lobo)
+
+for i, theta in enumerate(theta_lobo):
+    # Normalizzo theta da -1 a +1
+    t = theta / (angolo_per_lobo / 2)  # t va da -1 a +1
+    t_abs = abs(t)
+
+    if t_abs < frazione_valle:
+        # Valle centrale: raggio interno
+        radii_lobo[i] = r_interno
+    elif t_abs < frazione_valle + frazione_transizione:
+        # Transizione: smooth crescita verso lobo
+        progress = (t_abs - frazione_valle) / frazione_transizione
+        # Uso smoothstep per transizione morbida
+        smooth = progress * progress * (3 - 2 * progress)
+        radii_lobo[i] = r_interno + (r_esterno - r_interno) * smooth
+    else:
+        # Lobo esterno: raggio massimo con piccola curvatura
+        progress = (t_abs - frazione_valle - frazione_transizione) / frazione_lobo
+        # Leggera riduzione alle estremità per forma arrotondata
+        curvatura = 1.0 - 0.1 * progress * progress
+        radii_lobo[i] = r_esterno * curvatura
+
+# Creo coordinate per UN lobo
+x_lobo = radii_lobo * np.cos(theta_lobo)
+y_lobo = radii_lobo * np.sin(theta_lobo)
+
+# Replico il lobo n_lobi volte
+all_x = []
+all_y = []
+
+for i in range(n_lobi):
+    angolo_rotazione = i * angolo_per_lobo
+    cos_rot = np.cos(angolo_rotazione)
+    sin_rot = np.sin(angolo_rotazione)
+
+    # Ruoto il lobo
+    x_rot = x_lobo * cos_rot - y_lobo * sin_rot
+    y_rot = x_lobo * sin_rot + y_lobo * cos_rot
+
+    all_x.extend(x_rot[:-1])  # Escludo ultimo punto per evitare duplicati
+    all_y.extend(y_rot[:-1])
+
+wagon_x = np.array(all_x)
+wagon_y = np.array(all_y)
+
+print(f"\nPunti wagon wheel: {len(wagon_x)} punti ({n_lobi} lobi)")
+
+# ============= ESPANSIONE RADIALE VERSO CASING =============
+fig = plt.figure(figsize=(14, 14))
+
+# Cerchio casing
+theta_casing = np.linspace(0, 2 * np.pi, 200)
+plt.plot(r_casing * 1000 * np.cos(theta_casing), r_casing * 1000 * np.sin(theta_casing),
+         'k-', linewidth=3.5, label=f'Casing D={D_casing * 1000:.1f}mm', zorder=10)
+
+# Wagon wheel iniziale
+plt.plot(wagon_x * 1000, wagon_y * 1000, 'b', linewidth=4,
+         label='Wagon Wheel iniziale', zorder=9)
+
+# Parametri per espansione radiale
+n_iterations = 8
+
+# Calcolo raggi
+r_points = np.hypot(wagon_x, wagon_y)
+theta_points = np.arctan2(wagon_y, wagon_x)
+
+# Progress factors
+progress_values = np.linspace(0, 0.95, n_iterations + 1)[1:]
+
+print(f"\n{'=' * 70}")
+print(f"SVP WAGON WHEEL - ESPANSIONE RADIALE:")
+print(f"  Numero iterazioni: {n_iterations}")
+print(f"{'=' * 70}\n")
+
+colors = plt.cm.rainbow(np.linspace(0, 1, n_iterations))
+
+# Espansione radiale
+for i, progress in enumerate(progress_values):
+    r_new = r_points + (r_casing - r_points) * progress
+
+    expanded_x = r_new * np.cos(theta_points)
+    expanded_y = r_new * np.sin(theta_points)
+
+    plt.plot(expanded_x * 1000, expanded_y * 1000,
+             color=colors[i], alpha=0.8, linewidth=2.2, zorder=8 - i * 0.1)
+
+    r_min_new = np.min(r_new) * 1000
+    r_max_new = np.max(r_new) * 1000
+    print(f"  Iter {i + 1}: r_min={r_min_new:.2f}mm, r_max={r_max_new:.2f}mm")
+
+plt.axis('equal')
+plt.grid(True, alpha=0.3, linestyle=':', linewidth=0.8)
+plt.legend(fontsize=14, loc='upper right', framealpha=0.98, edgecolor='black', fancybox=True)
+
+plt.title('SVP Industries Wagon Wheel - Burning Progression\n10 lobi con valli e transizioni morbide',
+          fontsize=18, weight='bold', pad=25)
+
+plt.xlabel('Posizione X (mm)', fontsize=14, weight='bold')
+plt.ylabel('Posizione Y (mm)', fontsize=14, weight='bold')
+
+axis_limit = r_casing * 1000 * 1.15
+plt.xlim(-axis_limit, axis_limit)
+plt.ylim(-axis_limit, axis_limit)
+
+plt.subplots_adjust(top=0.94)
+plt.tight_layout(rect=[0, 0, 1, 0.96])
+
+output_path = 'svp_wagon_wheel_10lobi_burning.png'
+plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white')
+print(f"\n✓ Immagine salvata in: {output_path}")
+
+plt.show()
+
+print(f"\n✓ SVP Wagon Wheel completata!")
