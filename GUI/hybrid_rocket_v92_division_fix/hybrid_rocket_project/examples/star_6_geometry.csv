@@ -1,0 +1,16 @@
+# Star 6-point grain geometry example
+# Format: x [m], y [m]
+# One point per line
+# Points should be in order (clockwise or counter-clockwise)
+0.040, 0.000
+0.010, 0.017
+0.020, 0.035
+-0.010, 0.017
+-0.040, 0.000
+-0.010, -0.017
+-0.020, -0.035
+0.010, -0.017
+0.020, -0.035
+0.010, -0.017
+-0.020, 0.035
+-0.010, 0.017
