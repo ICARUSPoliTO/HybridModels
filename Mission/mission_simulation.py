@@ -6,11 +6,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import CoolProp.CoolProp as cp
 from Tools.scripts.pindent import delete_file
-
+import pickle
 import Injection.PyInjection as inj
 import Line_losses.linelosses as loss
 import Geometry.geometry_update as geom
 import Geometry.geometry_calculation as geomcalc
+import Geometry.dimensionalize as dimensionalize
 import Performance.performance_singlepoint as perf
 import Tank.tank_update as tank
 import Mission.chamber_update as chamber
@@ -401,6 +402,7 @@ def run_one_step(pc, mdot_throat, Tc, MW, gamma, a, n, rho_fuel, pamb, ptank, Tt
     m_fuel = geomcalc.calculate_fuel_mass(Ap, Lc, D_chamber, rho_fuel)
 
     pc = chamber.update_chamberpressure(m_c, Tc, MW, Vol_chamber)
+
     mdot_throat = inj.gas_injection_custom(pc, pamb, Tc, 1, gamma, MW, eps) * At
 
     ptank, Ttank, mL, entropies, masses, pressures, temperatures = tank.update_tank(mdot_ox, dt,
@@ -982,12 +984,13 @@ def match_mission(burn_time, pamb, Tamb, a, n, rho_fuel,
 
 if __name__ == '__main__':
 
-    burn_time = 30 #[s]
+    burn_time = 20 #[s]
     pamb = 1.01325e5
-    Tamb = 288
-    a = 0.17e-3
+    lossInput = 2.75e5
+    Tamb = 273.15 + 20
+    a = 0.00017
     n = 0.5
-    rho_fuel = 850  # [kg/m^3]
+    rho_fuel = 890  # [kg/m^3]
     oxidizer = {"OxidizerCP": "NitrousOxide",
                 "OxidizerCEA": "N2O",
                 "Weight fraction": "100",  # Multi-fluid Ox injector not available
@@ -1003,24 +1006,36 @@ if __name__ == '__main__':
             }
 
     eps = 4.5
-    Dt = 0.04
-    Dp = 0.06
-    Dinj = 0.0101
+    Dt = 0.01
+    D_chamber = 0.1  # [m]
+    x, y = geomcalc.create_regular_poligon(6, 0.026/2)
+    Dinj_Dt = 0.275
+    Dp_Dt = 2
+    Lc_Dt = 20.0
+    pitch = 1.4
+    Dp = Dp_Dt * Dt
+    Dinj = Dinj_Dt * Dt
+    #Dinj = 0.0011
+    n_inj = 1
+    Lc = Lc_Dt * Dt
 
-    Ainj = 0.25 * np.pi * (Dinj ** 2) # [m^2]
+    Ainj = n_inj * 0.25 * np.pi * (Dinj ** 2) # [m^2]
     At = 0.25 * np.pi * (Dt ** 2) # [m^2]
-    Lc = 0.16 # [m]
-    D_chamber = 0.1 # [m]
+
     Avent = 0 # [m^2]
 
-    x = np.array([0.5 * Dp]) # [m]
-    y = np.array([0]) # [m]
-    z = 1
-    Vol_prechamber = 0.1
-    Vol_postchamber = 0.1
+    #x = np.array([Dp * 0.5])
+    #y = np.array([0])
+    x, y, Lc, pitch = dimensionalize.dimensionalize_geometry(x, y, Dp, Lc, pitch)
 
-    mtank = 25 # [kg]
-    Q = 0.03
+    #x = np.array([0.5 * Dp]) # [m]
+    #y = np.array([0]) # [m]
+    z = 1
+    Vol_prechamber = 0.0
+    Vol_postchamber = 0.0007565
+
+    mtank = 14 # [kg]
+    Q = 0.05
     pressurant = None
     ppress = 1e5
     p0 = pamb
@@ -1030,17 +1045,16 @@ if __name__ == '__main__':
 
     utilities = {"CDvent": 0.75,"Avent": Avent, "CDpress": 0.9, "Apress": 0.0}
 
-    CD = 0.8
+    CD = 0.5
     pressurant = None
     rend_cstar = 0.85
-    rend_CF = 0.8
-    pitch = 0.0 # [m]
-    circular = True
+    rend_CF = 0.85
+    circular = False
     delay_time = 0.5 # [s]
     npointsperside = 50
     tol = 1e-3
 
-    """
+    #"""
     time, performances_out, out_log = run_full_mission(burn_time, pamb, Tamb, a, n, rho_fuel,
                      eps, Ainj, At, Lc, D_chamber,
                      x, y, z,
@@ -1066,6 +1080,7 @@ if __name__ == '__main__':
 
     results = normalize_performances(performances_out)
 
+    """
     #Plot to match output file
     plt.figure()
     plt.plot(time, results["Thrust"])
@@ -1076,23 +1091,68 @@ if __name__ == '__main__':
     plt.plot(time, results["mL"], label="Tank")
     plt.legend()
     plt.show()
+    """
     for elmnt in out_log:
         print(elmnt)
 
-    import pickle
+    sim_params = {
+        "eps": eps,
+        "Dt": Dt,
+        "D_chamber": D_chamber,
+        "x": x,
+        "y": y,
+        "Dinj_Dt": Dinj_Dt,
+        "Dp_Dt": Dp_Dt,
+        "Lc_Dt": Lc_Dt,
+        "pitch": pitch,
+        "Dp": Dp,
+        "Dinj": Dinj,
+        "Lc": Lc,
+        "Ainj": Ainj,
+        "At": At,
+        "Avent": Avent,
+        "z": z,
+        "Vol_prechamber": Vol_prechamber,
+        "Vol_postchamber": Vol_postchamber,
+        "mtank": mtank,
+        "Q": Q,
+        "pressurant": pressurant,
+        "ppress": ppress,
+        "p0": p0,
+        "plim": plim,
+        "masses": masses,
+        "volumes": volumes,
+        "pressures": pressures,
+        "temperatures": temperatures,
+        "constant_pressure_tank": constant_pressure_tank,
+        "utilities": utilities,
+        "CD": CD,
+        "rend_cstar": rend_cstar,
+        "rend_CF": rend_CF,
+        "circular": circular,
+        "delay_time": delay_time,
+        "npointsperside": npointsperside,
+        "tol": tol,
+    }
+
     # Saving the objects:
-    open('results.pkl', 'w').close()
-    with open('results.pkl', 'wb') as f:  # Python 3: open(..., 'wb')
-        pickle.dump((time, inputs, results, out_log), f)
+    SAVE_PATH = "D:\DesktopMirror\PoliTo\Team Icarus\FRANCO_mk14\FRANCO_mk14_postchamber_"  # <-- modifica qui
+    open(SAVE_PATH+'results.pkl', 'w').close()
+    open(SAVE_PATH + 'mis_param.pkl', 'w').close()
+    #with open(SAVE_PATH+'results.pkl', 'wb') as f:  # Python 3: open(..., 'wb')
+    #    pickle.dump((time, inputs, results, out_log), f)
+    with open(SAVE_PATH+"mis_param.pkl", "wb") as f:
+        pickle.dump(sim_params, f)
 
-
+    with open(SAVE_PATH + 'results.pkl', 'wb') as f:  # Python 3: open(..., 'wb')
+        pickle.dump((time, results, out_log), f)
 
     """
     burn = [p["burn"] for p in performances_out]
     Tc_CEA = [performances_out[i]["Tc_CEA"] for i, b in enumerate(burn) if b]
     time_burn = [time[i] for i, b in enumerate(burn) if b]
     """
-    #plotting.plot_results(time, results)
+    plotting.plot_results(time, results)
     """
     plt.figure()
     plt.plot(time, results["pc"], label="Pc")
@@ -1127,4 +1187,5 @@ if __name__ == '__main__':
 
     plt.show()
     """
+
 # end of file

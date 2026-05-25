@@ -3,8 +3,11 @@ This file provides the functions needed to get the chamber pressure
 at convergence for every parameter combination.
 """
 import numpy as np
+import Line_losses.linelosses as linelosses
 import time
 import Performance.performance_singlepoint as perfs
+import matplotlib.pyplot as plt
+import pickle
 
 
 def starting_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank, CD, a, n, rho_fuel, oxidizer, fuel,
@@ -40,14 +43,14 @@ def starting_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank, CD, a, n, rho_fuel
     :param gamma0   : Guess for specific heat ratio
     :return: Chamber pressure to start
     """
-
+    p_inj = ptank - linelosses.linelosses()
     if pamb <= 0: # pamb should never be negative obviously but never trust the user
-        pc_range_a = np.linspace(1, 0.8 * ptank, 200)
-        pc_range_b = np.linspace(0.8 * ptank, ptank, 200)
+        pc_range_a = np.linspace(1, 0.8 * p_inj, 200)
+        pc_range_b = np.linspace(0.8 * p_inj, p_inj, 200)
         pc_range = np.concatenate((pc_range_a, pc_range_b[1:]))
     else:
-        pc_range_a = np.linspace(pamb, 0.8 * ptank, 200)
-        pc_range_b = np.linspace(0.8 * ptank, ptank, 200)
+        pc_range_a = np.linspace(pamb, 0.8 * p_inj, 200)
+        pc_range_b = np.linspace(0.8 * p_inj, p_inj, 200)
         pc_range = np.concatenate((pc_range_a, pc_range_b[1:]))
 
     Fpcs = np.ones(np.shape(pc_range))
@@ -332,13 +335,16 @@ if __name__=="__main__":
     Ab = nport * np.pi * Dport * Lc
     """
 
-    Dport_Dt_range = np.linspace(1.5,3.0,5)
-    Dinj_Dt_range = np.linspace(0.005,0.5,5)
-    Lc_Dt_range = np.linspace(2,4,5)
+    Dport_Dt_range = np.linspace(2.0,10.0,5)
+    Dinj_Dt_range = np.linspace(0.1,0.5,5)
+    Lc_Dt_range = np.linspace(15,20,5)
     #"""
 
     eps = "adapt"
-    ptank = 27e5  # [Pa]
+    ptank = 39e5  # [Pa]
+    lossInput = 2.85e5 #[Pa]
+    Gox_min = 150
+    Gox_max = 700
     Ttank = 288  # [K]
     pamb = 1e5  # [Pa]
     gamma0 = 1.3
@@ -394,6 +400,56 @@ if __name__=="__main__":
     end = time.process_time()
     runtime = (end - start)
 
+    SAVE_PATH = "D:\DesktopMirror\PoliTo\Team Icarus\FRANCO_mk13"  # <-- modifica qui
+
+    paramsDict = {
+        "Dport_Dt_range": Dport_Dt_range,
+        "Dinj_Dt_range": Dinj_Dt_range,
+        "Lc_Dt_range": Lc_Dt_range,
+        "eps": eps,
+        "ptank": ptank,
+        "lossInput": lossInput,
+        "Gox_min": Gox_min,
+        "Gox_max": Gox_max,
+        "Ttank": Ttank,
+        "pamb": pamb,
+        "gamma0": gamma0,
+        "CD": CD,
+        "a": a,
+        "n": n,
+        "rho_fuel": rho_fuel,
+        "oxidizer": oxidizer,
+        "fuel": fuel,
+    }
+
+    arraysDict = {
+        "pc_array": pc_array,
+        "Fpc_array": Fpc_array,
+        "p_inj_array": p_inj_array,
+        "mdot_ox_array": mdot_ox_array,
+        "mdot_fuel_array": mdot_fuel_array,
+        "mdot_array": mdot_array,
+        "Gox_array": Gox_array,
+        "r_array": r_array,
+        "MR_array": MR_array,
+        "eps_array": eps_array,
+        "Tc_array": Tc_array,
+        "MW_array": MW_array,
+        "gamma_array": gamma_array,
+        "cs_array": cs_array,
+        "CF_vac_array": CF_vac_array,
+        "CF_array": CF_array,
+        "Ivac_array": Ivac_array,
+        "Is_array": Is_array,
+        "flag_array": flag_array,
+    }
+
+    with open(SAVE_PATH+"optimisation_results.pkl", "wb") as f:
+        pickle.dump(arraysDict, f)
+
+    with open(SAVE_PATH+"params.pkl", "wb") as f:
+        pickle.dump(paramsDict, f)
+
     """
     print("pc_start=    "+str(pc_start)+"Pa")
     print("Fpc_start=   "+str(Fpc_start)+"Pa")
@@ -423,6 +479,26 @@ if __name__=="__main__":
     print("Lc/Dt = ", Lc_Dt_range[kmax])
     #"""
     print("runtime=     "+str(runtime)+"s")
+
+    plt.figure()
+    plt.contourf(Dinj_Dt_range, Lc_Dt_range, Gox_array[0,:,:])
+
+    plt.figure()
+    plt.contourf(Dinj_Dt_range, Lc_Dt_range, Is_array[0, :, :])
+
+    plt.figure()
+    plt.contourf(Dinj_Dt_range, Lc_Dt_range, pc_array[0, :, :])
+
+    plt.figure()
+    plt.contourf(Dinj_Dt_range, Lc_Dt_range, Tc_array[0, :, :])
+
+    plt.figure()
+    plt.contourf(Dinj_Dt_range, Lc_Dt_range, eps_array[0, :, :])
+
+    plt.figure()
+    plt.contourf(Dinj_Dt_range, Lc_Dt_range, flag_array[0, :, :])
+
+    plt.show()
 
 
 ## end of file

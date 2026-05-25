@@ -152,8 +152,18 @@ def plot_results(time: List[float], results: Dict[str, List[Any]]):
     ax.plot(time, s("pc"), label="p_c", linewidth=lw)
     ax.plot(time, s("pinj"), label="p_inj", linewidth=lw)
     ax.plot(time, s("ptank"), label="p_tank", linewidth=lw)
+    ax.set_xlim(time[0], 30)
+    ax.legend()
+    #ax.grid(True)
+    fig.tight_layout()
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.set_title("PRESSURES")
+    ax.set_xlabel("Time [s]")
+    ax.set_ylabel("Pressure [Pa]")
     ax.plot(time, s("pe"), label="p_e", linewidth=lw)
     ax.plot(time, s("pamb"), label="p_amb", linewidth=lw)
+    ax.set_xlim(time[0], 30)
     ax.legend()
     #ax.grid(True)
     fig.tight_layout()
@@ -169,6 +179,7 @@ def plot_results(time: List[float], results: Dict[str, List[Any]]):
     ax.plot(time, s("Tc"), label="T_c", linewidth=lw, zorder=2)
     ax.plot(time, s("Ttank"), label="T_tank", linewidth=lw, zorder=2)
     ax.plot(time, s("Te"), label="T_e", linewidth=lw, zorder=2)
+    ax.set_xlim(time[0], 30)
     ax.legend()
     #ax.grid(True)
     fig.tight_layout()
@@ -184,6 +195,7 @@ def plot_results(time: List[float], results: Dict[str, List[Any]]):
     ax.plot(time, s("mdot_ox"), label="Oxidizer", linewidth=lw, zorder=2)
     ax.plot(time, s("mdot_fuel"), label="Fuel", linewidth=lw, zorder=2)
     ax.plot(time, s("mdot_throat"), label="Total outflow", linewidth=lw, zorder=2)
+    ax.set_xlim(time[0], 30)
     ax.legend()
     #ax.grid(True)
     fig.tight_layout()
@@ -358,12 +370,17 @@ if __name__ == "__main__":
 
     import pickle
     # Getting back the objects:
-    with open('results.pkl', 'rb') as f:  # Python 3: open(..., 'rb')
-        time, inputs, results, out_log = pickle.load(f)
+    SAVE_PATH = "D:\DesktopMirror\PoliTo\Team Icarus\FRANCO_mk14\FRANCO_mk14_"  # <-- modifica qui
+    with open(SAVE_PATH+'results.pkl', 'rb') as f:  # Python 3: open(..., 'rb')
+        time, results, out_log = pickle.load(f)
+
+    with open(SAVE_PATH+"mis_param.pkl", "rb") as f:
+        sim_params = pickle.load(f)
 
     for elmnt in out_log:
         print(elmnt)
     from Geometry.geometry_calculation import fill_borders_circumference
+    from Geometry.geometry_calculation import fill_borders
 
     plt.figure()
     for i in range(len(results["x"])):
@@ -375,15 +392,38 @@ if __name__ == "__main__":
             c = "g*-"
         else:
             c = '-'
-        x, y = fill_borders_circumference(results["x"][i], results["y"][i], 50)
-        plt.plot(x,y, c)
+        x, y = fill_borders(results["x"][i], results["y"][i], 50)
+        if i%100==0:
+            plt.plot(x,y, c)
 
-    x,y = fill_borders_circumference(np.array([0.5*inputs["D_chamber"]]), np.array([0]), 50)
+    x,y = fill_borders_circumference(np.array([0.5*sim_params["D_chamber"]]), np.array([0]), 50)
     plt.plot(x,y, 'ko-')
     plt.show()
 
     print("Starting fuel mass = ", results["m_fuel"][0], " kg")
     print("Starting oxidizer mass = ", results["mL"][0], " kg")
+
+    burn_mask = results["burn"]
+    burn_mask = np.array(burn_mask, dtype=bool)
+    bf_fuel = np.array(results["m_fuel"])[burn_mask]
+    bf_ox = np.array(results["mL"])[burn_mask]
+    print(f'Average pc = {np.average(np.array(results["pc"])[burn_mask])/1e5} bar')
+    print(f'Average Gox = {np.average(  np.array(results["Gox"])[burn_mask])} bar')
+    print(f'Average r = {np.average(    np.array(results["r"])[burn_mask])*1e3} mm/s')
+    print(f'Average MR = {np.average(   np.array(results["MR"])[burn_mask])}')
+    print(f'Fuel burned = {bf_fuel[0] - bf_fuel[-1]} kg')
+    print(f'Oxidizer burned = {bf_ox[0] - bf_ox[-1]} kg')
+
+    print("********ROCKET DESIGN********")
+    print(f"Injector diameter (equivalent) = {sim_params['Dt']} m")
+    print(f"Initial port diameter (equivalent) = {sim_params['Dp']} m")
+    print(f"Initial port diameter (real) = {2 * np.max(np.sqrt(sim_params['x']**2 + sim_params['y']**2))} m")
+    print(f"Grain pitch = {sim_params['pitch']} m")
+    print(f"Grain Lenght = {sim_params['Lc']} m")
+    print(f"Chamber diameter = {sim_params['D_chamber']} m")
+    print(f"Throat diameter = {sim_params['Dt']} m")
+
+
 
     #print(results.keys())
     plot_results(time, results)

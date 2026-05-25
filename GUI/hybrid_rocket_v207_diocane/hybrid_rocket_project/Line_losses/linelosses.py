@@ -6,6 +6,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def linelosses():
-    delta_p = 0
+def linelosses(lossInput):
+    delta_p = lossInput
     return delta_p

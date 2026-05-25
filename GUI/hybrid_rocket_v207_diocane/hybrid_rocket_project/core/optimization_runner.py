@@ -104,7 +104,7 @@ class OptimizationRunner:
             try:
                 from Line_losses import linelosses as ll
                 line_losses_value = inputs.get('line_losses', 0)
-                ll.set_line_losses(line_losses_value)
+                ll.linelosses(line_losses_value)
             except ImportError:
                 pass  # Line losses module not available, will use default 0
             
