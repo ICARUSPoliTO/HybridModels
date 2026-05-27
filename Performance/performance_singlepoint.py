@@ -78,7 +78,7 @@ def calculate_performance(Ainj, Aport, Ab, eps, ptank, Ttank, pc, CD,
         eps_out = eps
 
     # Calculate injection pressure after losses. May require iterations with Oxidizer injection
-    p_inj = ptank - linelosses.linelosses() #add input for line losses here and in the inputs of the function
+    p_inj = ptank - linelosses.linelosses(ptank) #add input for line losses here and in the inputs of the function
 
     # Calculate injection mass flow
     mdot_ox = injection.massflow(p_inj, pc, Ttank, CD, oxidizer['OxidizerCP'])

@@ -32,7 +32,19 @@ def find_dt(Tc, MW, gamma, Tc_CEA, MW_CEA, gamma_CEA, m_c_i, Dmdot_in, Dmdot_out
     dt_delta = m_c_i / ( (KM - tol_delta) * Dmdot_in / tol_delta + Dmdot_out)
     #dt_epsilon = m_c_i / ( ((KC - KM) / ( (KG / tol_epsilon) - 1 + 8314) + KM + 1) * Dmdot_in + Dmdot_out)
 
-    dt = min(abs(dt_mass), abs(dt_alpha), abs(dt_beta), abs(dt_delta))
+    if np.isnan(dt_mass):
+        dt_mass = 1e12
+
+    if np.isnan(dt_alpha):
+        dt_alpha = 1e12
+
+    if np.isnan(dt_beta):
+        dt_beta = 1e12
+
+    if np.isnan(dt_delta):
+        dt_delta = 1e12
+
+    dt = min(abs(dt_mass), abs(dt_alpha), abs(dt_beta), abs(dt_delta), 1e-6)
 
     return dt
 

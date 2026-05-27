@@ -152,7 +152,7 @@ def plot_results(time: List[float], results: Dict[str, List[Any]]):
     ax.plot(time, s("pc"), label="p_c", linewidth=lw)
     ax.plot(time, s("pinj"), label="p_inj", linewidth=lw)
     ax.plot(time, s("ptank"), label="p_tank", linewidth=lw)
-    ax.set_xlim(time[0], 30)
+    #ax.set_xlim(time[0], 30)
     ax.legend()
     #ax.grid(True)
     fig.tight_layout()
@@ -161,9 +161,19 @@ def plot_results(time: List[float], results: Dict[str, List[Any]]):
     ax.set_title("PRESSURES")
     ax.set_xlabel("Time [s]")
     ax.set_ylabel("Pressure [Pa]")
+    ax.plot(time, s("pc"), label="p_c", linewidth=lw)
+    # ax.set_xlim(time[0], 30)
+    ax.legend()
+    # ax.grid(True)
+    fig.tight_layout()
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.set_title("PRESSURES")
+    ax.set_xlabel("Time [s]")
+    ax.set_ylabel("Pressure [Pa]")
     ax.plot(time, s("pe"), label="p_e", linewidth=lw)
     ax.plot(time, s("pamb"), label="p_amb", linewidth=lw)
-    ax.set_xlim(time[0], 30)
+    #ax.set_xlim(time[0], 30)
     ax.legend()
     #ax.grid(True)
     fig.tight_layout()
@@ -179,7 +189,7 @@ def plot_results(time: List[float], results: Dict[str, List[Any]]):
     ax.plot(time, s("Tc"), label="T_c", linewidth=lw, zorder=2)
     ax.plot(time, s("Ttank"), label="T_tank", linewidth=lw, zorder=2)
     ax.plot(time, s("Te"), label="T_e", linewidth=lw, zorder=2)
-    ax.set_xlim(time[0], 30)
+    #ax.set_xlim(time[0], 30)
     ax.legend()
     #ax.grid(True)
     fig.tight_layout()
@@ -195,7 +205,7 @@ def plot_results(time: List[float], results: Dict[str, List[Any]]):
     ax.plot(time, s("mdot_ox"), label="Oxidizer", linewidth=lw, zorder=2)
     ax.plot(time, s("mdot_fuel"), label="Fuel", linewidth=lw, zorder=2)
     ax.plot(time, s("mdot_throat"), label="Total outflow", linewidth=lw, zorder=2)
-    ax.set_xlim(time[0], 30)
+    #ax.set_xlim(time[0], 30)
     ax.legend()
     #ax.grid(True)
     fig.tight_layout()
@@ -370,7 +380,7 @@ if __name__ == "__main__":
 
     import pickle
     # Getting back the objects:
-    SAVE_PATH = "D:\DesktopMirror\PoliTo\Team Icarus\FRANCO_mk14\FRANCO_mk14_"  # <-- modifica qui
+    SAVE_PATH = "D:\DesktopMirror\PoliTo\Team Icarus\FRANCO_mk14\FRANCO_mk14_N2_"  # <-- modifica qui
     with open(SAVE_PATH+'results.pkl', 'rb') as f:  # Python 3: open(..., 'rb')
         time, results, out_log = pickle.load(f)
 
@@ -400,6 +410,7 @@ if __name__ == "__main__":
     plt.plot(x,y, 'ko-')
     plt.show()
 
+    """
     print("Starting fuel mass = ", results["m_fuel"][0], " kg")
     print("Starting oxidizer mass = ", results["mL"][0], " kg")
 
@@ -422,8 +433,7 @@ if __name__ == "__main__":
     print(f"Grain Lenght = {sim_params['Lc']} m")
     print(f"Chamber diameter = {sim_params['D_chamber']} m")
     print(f"Throat diameter = {sim_params['Dt']} m")
-
-
+    """
 
     #print(results.keys())
     plot_results(time, results)

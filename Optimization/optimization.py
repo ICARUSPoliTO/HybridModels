@@ -43,7 +43,7 @@ def starting_pressure(Ainj, Aport, At, Ab, eps, ptank, Ttank, CD, a, n, rho_fuel
     :param gamma0   : Guess for specific heat ratio
     :return: Chamber pressure to start
     """
-    p_inj = ptank - linelosses.linelosses()
+    p_inj = ptank - linelosses.linelosses(ptank)
     if pamb <= 0: # pamb should never be negative obviously but never trust the user
         pc_range_a = np.linspace(1, 0.8 * p_inj, 200)
         pc_range_b = np.linspace(0.8 * p_inj, p_inj, 200)

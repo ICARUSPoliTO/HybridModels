@@ -253,7 +253,7 @@ def run_one_step_no_burn(pc, mdot_throat, Tc, MW, gamma, rho_fuel, pamb, ptank, 
         eps = eps
 
     # Calculate injection pressure after losses. May require iterations with Oxidizer injection
-    p_inj = ptank - loss.linelosses()  # add input for line losses here and in the inputs of the function
+    p_inj = ptank - loss.linelosses(ptank)  # add input for line losses here and in the inputs of the function
 
     # Calculate injection mass flow
     mdot_ox = inj.massflow(p_inj, pc, Ttank, CD, oxidizer['OxidizerCP'])
@@ -268,6 +268,7 @@ def run_one_step_no_burn(pc, mdot_throat, Tc, MW, gamma, rho_fuel, pamb, ptank, 
     Tc, MW, gamma, m_c, dt = chamber.update_Temperature_and_gasproperties(pc, Tc, MW, gamma, Tc_CEA, MW_CEA, gamma_CEA,
                                                                           mdot_ox, mdot_fuel, mdot_throat, Vol_chamber,
                                                                           tol)
+    dt = max(dt, 1e-4)
 
     pc = chamber.update_chamberpressure(m_c, Tc, MW, Vol_chamber)
     mdot_throat = inj.gas_injection_custom(pc, pamb, Tc, 1, gamma, MW, eps) * At
@@ -613,7 +614,9 @@ def run_full_mission(burn_time, pamb, Tamb, a, n, rho_fuel,
         out_str += f"Combustion time ended at {time[-1]}!"
 
     out_log.append(out_str)
-
+    tol = 1e-6
+    counter = 0
+    pc_old = 0
     while conditions_no_burn:
         (pc, mdot_throat, Thrust, dt,
          Tc, MW, gamma, ptank, Ttank, eps,
@@ -629,7 +632,13 @@ def run_full_mission(burn_time, pamb, Tamb, a, n, rho_fuel,
                      oxidizer, pressurant,
                      rend_CF, constant_pressure_tank, tol)
 
-        conditions_no_burn = (mL > 0 or full_gas_tank) & (ptank > pc)
+        if abs(pc_old - pc)/pc < tol:
+            counter += 1
+        else:
+            counter = 0
+
+        pc_old = pc
+        conditions_no_burn = (mL > 0 or full_gas_tank) & (ptank > pc) & (counter < 100)
         time.append(time[-1] + dt)
         performances_out.append(performances)
 
@@ -639,6 +648,9 @@ def run_full_mission(burn_time, pamb, Tamb, a, n, rho_fuel,
         out_str += f"Time: {time[-1]}"
     elif not (ptank > pc):
         out_str += "Tank pressure too low!\n"
+        out_str += f"Time: {time[-1]}"
+    elif counter >= 100:
+        out_str += "Pressure is not changing!"
         out_str += f"Time: {time[-1]}"
 
     out_log.append(out_str)
@@ -984,13 +996,16 @@ def match_mission(burn_time, pamb, Tamb, a, n, rho_fuel,
 
 if __name__ == '__main__':
 
-    burn_time = 20 #[s]
+    #burn_time = 20 #[s]
+    burn_time = 0  # [s]
     pamb = 1.01325e5
-    lossInput = 2.75e5
+    #lossInput = 2.75e5 #[Pa]
+    lossInput = [3e5, 70e5] #[Pa] FIRST INPUT IS LOSSES, SECOND IS LIMIT PRESSURE :)
     Tamb = 273.15 + 20
     a = 0.00017
     n = 0.5
     rho_fuel = 890  # [kg/m^3]
+    """
     oxidizer = {"OxidizerCP": "NitrousOxide",
                 "OxidizerCEA": "N2O",
                 "Weight fraction": "100",  # Multi-fluid Ox injector not available
@@ -998,6 +1013,15 @@ if __name__ == '__main__':
                 "Temperature [K]": "",
                 "Specific Enthalpy [kj/mol]": ""
                 }
+    """
+    oxidizer = {"OxidizerCP": "Nitrogen",
+                "OxidizerCEA": "N2",
+                "Weight fraction": "100",  # Multi-fluid Ox injector not available
+                "Exploded Formula": "",
+                "Temperature [K]": "",
+                "Specific Enthalpy [kj/mol]": ""
+                }
+    #"""
     fuel = {"Fuels": ["paraffin"],
             "Weight fraction": ["100"],
             "Exploded Formula": ["C 73 H 124"],
@@ -1034,18 +1058,21 @@ if __name__ == '__main__':
     Vol_prechamber = 0.0
     Vol_postchamber = 0.0007565
 
-    mtank = 14 # [kg]
-    Q = 0.05
+    mtank = 1.17 # [kg]
+    #Q = 0.05
+    Q = 1.0
     pressurant = None
     ppress = 1e5
-    p0 = pamb
+    #p0 = pamb
+    p0 = 200e5 #[Pa]
     plim = None
     masses, volumes, pressures, temperatures, constant_pressure_tank = (
         tank.build_tank(mtank, Q, Tamb, oxidizer, pressurant, ppress, p0, plim))
 
     utilities = {"CDvent": 0.75,"Avent": Avent, "CDpress": 0.9, "Apress": 0.0}
 
-    CD = 0.5
+    #CD = 0.5
+    CD = 0.8
     pressurant = None
     rend_cstar = 0.85
     rend_CF = 0.85
@@ -1136,7 +1163,7 @@ if __name__ == '__main__':
     }
 
     # Saving the objects:
-    SAVE_PATH = "D:\DesktopMirror\PoliTo\Team Icarus\FRANCO_mk14\FRANCO_mk14_postchamber_"  # <-- modifica qui
+    SAVE_PATH = "D:\DesktopMirror\PoliTo\Team Icarus\FRANCO_mk14\FRANCO_mk14_N2_"  # <-- modifica qui
     open(SAVE_PATH+'results.pkl', 'w').close()
     open(SAVE_PATH + 'mis_param.pkl', 'w').close()
     #with open(SAVE_PATH+'results.pkl', 'wb') as f:  # Python 3: open(..., 'wb')
